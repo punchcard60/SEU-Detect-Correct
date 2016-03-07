@@ -33,6 +33,8 @@ const uint32_t FlashSections[FLASH_SECTIONS] = {
     PTR_TO_UINT(FLASH_BASE) + K(896)
 };
 
+uint32_t crc_expire_times[68];
+
 void __cyg_profile_func_enter (void* this_func, void* caller) {
 	section1_profile_func_enter((PTR_TO_UINT(caller) - PTR_TO_UINT(BLOCK_BASE)) / sizeof(block_t));
 }
