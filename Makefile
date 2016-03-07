@@ -101,7 +101,7 @@ LDFLAGS=$(COMMONFLAGS) -ffast-math -fno-exceptions $(MCU_FLAGS)
 SEUFLAG=-finstrument-functions
 
 #INITIAL_LINKERSCRIPT=-Tseu/initial_seu_link.ld
-INITIAL_LINKERSCRIPT=-T$(REED_SOLOMON)/STM32F4xx_FLASH.ld
+INITIAL_LINKERSCRIPT=$(REED_SOLOMON)/STM32F4xx_FLASH.ld
 SECONDARY_LINKERSCRIPT=-Tbuild/gen/secondary_seu_link.ld
 
 TRACE_FILES = seu/src/trace_functions.c
@@ -159,13 +159,13 @@ INITIAL_COMPILATION: UNCHECKED_OBJS $(RS_OBJS)
 	@$(AS) -o $(ASRC:%.s=$(BUILD_DIR)/%.o) $(STARTUP)/$(ASRC)
 	@echo [LD] $(TARGET).elf
 	@test -d $(BIN_DIR) || mkdir -p $(BIN_DIR)
-	$(CC) -o $(BIN_DIR)/initial$(TARGET).elf $(INITIAL_LINKERSCRIPT) $(LDFLAGS) $(OBJ) $(RS_OBJS) $(TRACE_OBJ) $(ASRC:%.s=$(BUILD_DIR)/%.o) $(LDLIBS)
+	$(CC) -o $(BIN_DIR)/initial$(TARGET).elf -T$(INITIAL_LINKERSCRIPT) $(LDFLAGS) $(OBJ) $(RS_OBJS) $(TRACE_OBJ) $(ASRC:%.s=$(BUILD_DIR)/%.o) $(LDLIBS)
 
 INITIAL_PROFILER: INITIAL_COMPILATION
 	@echo "Starting Initial Profiler"
 	@test -d $(SEU_GEN_DIR) || mkdir -p $(SEU_GEN_DIR)
 	@$(READELF) --wide -s binary/initialFreeRTOS.elf| grep " FUNC    " | awk '{print $$3 " " $$8 }' | sort -k 2 | uniq -u  > $(SEU_GEN_DIR)/fullMap.data
-	@awk '/\*-{6}\*/{x++}{print >"$(SEU_GEN_DIR)/template_half_" x ".ld" }' x=0 seu/initial_seu_link.ld #Split Linker script in half
+	@awk '/\*-{6}\*/{x++}{print >"$(SEU_GEN_DIR)/template_half_" x ".ld" }' x=0 $(INITIAL_LINKERSCRIPT) #Split Linker script in half
 	@$(PYTHON) $(SEU_DIR)/initial_profiler.py
 	@echo "initial Profiler Completed"
 
@@ -178,7 +178,7 @@ SECONDARY_PROFILER: SECONDARY_COMPILATION
 	@echo "Starting Final Profiler"
 	$(eval textOffset:=$(shell $(READELF) -S $(BIN_DIR)/final$(TARGET).elf | grep ".text  " | awk '{print $$6}'))
 	@echo "Starting CRC_Generator/elf modifier"
-	./build/crcGenerator $(BIN_DIR)/final$(TARGET).elf $(textOffset)
+	./build/crcGenerator $(BIN_DIR)/final$(TARGET).elf $(textOffset) $(BIN_DIR)/encoded$(TARGET).elf
 
 .PHONY: clean
 
