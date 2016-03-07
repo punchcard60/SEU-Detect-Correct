@@ -24,24 +24,28 @@
 #include "crc_generator.h"
 #include "reed_solomon.h"
 
-#define SIXTEEN_K (1024 * 16) //Linkerscript leaves 16k space before block_count symbol
-
 static uint32_t CRC_CalcBlockCRC (uint32_t *buffer, uint32_t words);
 
 int main(int argc, char** argv) { 
-    // arguments: argv[1] input file name. argv[2] offset to start of .text section
-    char* outputFileName = "binary/encodedFinalFreeRTOS.elf\0"; // hardcoded output name
-    
-    FILE* outputFile; 
-    FILE* inputFile;
-    
+    // arguments:
+    // argv[1] input file name
+    // argv[2] offset to start of .text section
+    // argv[3] output file name
+
+    if (argc != 4) {
+        fprintf(stderr, "Usage: <input.elf> <.text-offset> <output.elf>\n");
+        exit(1);
+    }
+
+    FILE *inputFile, *outputFile;
+
     if ((inputFile = fopen(argv[1], "rb")) == NULL) {
         printf("Error opening %s\n", argv[1]);
         return 1;
     }
 
-    if ((outputFile = fopen(outputFileName, "wb")) == NULL) {
-        printf("Error opening %s\n", outputFileName);
+    if ((outputFile = fopen(argv[3], "wb")) == NULL) {
+        printf("Error opening %s\n", argv[3]);
         return 1;
     }
 
@@ -56,27 +60,27 @@ int main(int argc, char** argv) {
     }
 
     uint32_t offset = strtol(argv[2], NULL, 16);
-    long* blockCount = (long *) (inputData + offset + SIXTEEN_K); //pointer to sybol defined in Linker Script
-    struct block* blocks = (struct block*)(inputData + offset + SIXTEEN_K + 8);
+    uint32_t blockCount = *((uint32_t *) (inputData + offset)); //pointer to sybol defined in Linker Script
+    struct block* blocks = (struct block*)(inputData + offset + 8);
 
     uint32_t numWords = sizeof(block_t) / sizeof(uint32_t);
     uint32_t blockToEncode [numWords];
 
     uint32_t crc;
-    
+
     uint16_t parityData[PARITY_SYMBOL_COUNT]; //used to print hex of parity symbols
 
     int idx, x;
     int parityStartIdx = SYMBOL_TABLE_WORDS - PARITY_SYMBOL_COUNT - 1;
 
-    for (idx = 0; idx < *blockCount; idx++) {
+    for (idx = 0; idx < blockCount; idx++) {
         memcpy(blockToEncode, &(blocks[idx]), sizeof(block_t)-1);
         encode_rs((word_t*) blockToEncode);
         crc = CRC_CalcBlockCRC((uint32_t*)blockToEncode, numWords);
         blocks[idx].crc = crc;
 
         memcpy(parityData, &(blocks[idx].reed_solomon_data[parityStartIdx]), PARITY_SYMBOL_COUNT);
-        
+
         //Printing this data for debugging purposes 
         printf("%08x,", crc);
         for (x = 0; x < PARITY_SYMBOL_COUNT; x++) {
