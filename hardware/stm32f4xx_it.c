@@ -1,94 +1,92 @@
 /**
   ******************************************************************************
-  * @file    stm32f4xx_it.c
+  * @file    USART/USART_HyperTerminal/stm32f4xx_it.c
   * @author  MCD Application Team
-  * @version V1.0.0
-  * @date    19-September-2011
+  * @version V1.6.1
+  * @date    21-October-2015
   * @brief   Main Interrupt Service Routines.
-  *          This file provides all exceptions handler and peripherals interrupt
-  *          service routine.
+  *          This file provides template for all exceptions handler and
+  *          peripherals interrupt service routine.
   ******************************************************************************
   * @attention
   *
-  * THE PRESENT FIRMWARE WHICH IS FOR GUIDANCE ONLY AIMS AT PROVIDING CUSTOMERS
-  * WITH CODING INFORMATION REGARDING THEIR PRODUCTS IN ORDER FOR THEM TO SAVE
-  * TIME. AS A RESULT, STMICROELECTRONICS SHALL NOT BE HELD LIABLE FOR ANY
-  * DIRECT, INDIRECT OR CONSEQUENTIAL DAMAGES WITH RESPECT TO ANY CLAIMS ARISING
-  * FROM THE CONTENT OF SUCH FIRMWARE AND/OR THE USE MADE BY CUSTOMERS OF THE
-  * CODING INFORMATION CONTAINED HEREIN IN CONNECTION WITH THEIR PRODUCTS.
+  * <h2><center>&copy; COPYRIGHT 2015 STMicroelectronics</center></h2>
   *
-  * <h2><center>&copy; COPYRIGHT 2011 STMicroelectronics</center></h2>
+  * Licensed under MCD-ST Liberty SW License Agreement V2, (the "License");
+  * You may not use this file except in compliance with the License.
+  * You may obtain a copy of the License at:
+  *
+  *        http://www.st.com/software_license_agreement_liberty_v2
+  *
+  * Unless required by applicable law or agreed to in writing, software
+  * distributed under the License is distributed on an "AS IS" BASIS,
+  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+  *
   ******************************************************************************
   */
 
 /* Includes ------------------------------------------------------------------*/
+#include "stm32f4xx.h"
 #include "stm32f4xx_it.h"
-#include "stdint.h"
+
+/** @addtogroup STM32F4xx_StdPeriph_Examples
+  * @{
+  */
+
+/** @addtogroup USART_HyperTerminal
+  * @{
+  */
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
+#define TXBUFFERSIZE   (countof(aTxBuffer) - 1)
+#define RXBUFFERSIZE   0x20
+
 /* Private macro -------------------------------------------------------------*/
+#define countof(a)   (sizeof(a) / sizeof(*(a)))
+
 /* Private variables ---------------------------------------------------------*/
+uint8_t aTxBuffer[] = "\n\rUSART Hyperterminal Interrupts Example: USART-Hyperterminal\
+ communication using Interrupt\n\r";
+uint8_t aRxBuffer[RXBUFFERSIZE];
+uint8_t ubNbrOfDataToTransfer = TXBUFFERSIZE;
+uint8_t ubNbrOfDataToRead = RXBUFFERSIZE;
+__IO uint8_t ubTxCounter = 0;
+__IO uint16_t uhRxCounter = 0;
+
 /* Private function prototypes -----------------------------------------------*/
+/* Private functions ---------------------------------------------------------*/
 
 /******************************************************************************/
-/*            Cortex-M3 Processor Exceptions Handlers                         */
+/*            Cortex-M4 Processor Exceptions Handlers                         */
 /******************************************************************************/
 
 /**
-  * @brief   This function handles NMI exception.
+  * @brief  This function handles NMI exception.
   * @param  None
   * @retval None
   */
 void NMI_Handler(void)
 {
+  while (1)
+  {
+  }
 }
 
 /**
- * @see http://www.freertos.org/Debugging-Hard-Faults-On-Cortex-M-Microcontrollers.html
- */
-void prvGetRegistersFromStack(uint32_t *pulFaultStackAddress) {
-/* These are volatile to try and prevent the compiler/linker optimising them
-away as the variables never actually get used. If the debugger won't show the
-values of the variables, make them global my moving their declaration outside
-of this function. */
-  volatile uint32_t __attribute__((unused)) r0;
-  volatile uint32_t __attribute__((unused)) r1;
-  volatile uint32_t __attribute__((unused)) r2;
-  volatile uint32_t __attribute__((unused)) r3;
-  volatile uint32_t __attribute__((unused)) r12;
-  volatile uint32_t __attribute__((unused)) lr; /* Link register. */
-  volatile uint32_t __attribute__((unused)) pc; /* Program counter. */
-  volatile uint32_t __attribute__((unused)) psr;/* Program status register. */
-
-  r0 = pulFaultStackAddress[0];
-  r1 = pulFaultStackAddress[1];
-  r2 = pulFaultStackAddress[2];
-  r3 = pulFaultStackAddress[3];
-
-  r12 = pulFaultStackAddress[4];
-  lr = pulFaultStackAddress[5];
-  pc = pulFaultStackAddress[6];
-  psr = pulFaultStackAddress[7];
-
-  /* When the following line is hit, the variables contain the register values. */
-  for (;;);
+  * @brief  This function handles Hard Fault exception.
+  * @param  None
+  * @retval None
+  */
+void HardFault_Handler(void)
+{
+  /* Go to infinite loop when Hard Fault exception occurs */
+  while (1)
+  {
+  }
 }
-
-/* The fault handler implementation calls a function called
-   prvGetRegistersFromStack(). */
-/* static void HardFault_Handler(void) {
-  __asm volatile (
-     " tst lr, #4                                                \n"
-     " ite eq                                                    \n"
-     " mrseq r0, msp                                             \n"
-     " mrsne r0, psp                                             \n"
-     " ldr r1, [r0, #24]                                         \n"
-     " ldr r2, handler2_address_const                            \n"
-     " bx r2                                                     \n"
-     " handler2_address_const: .word prvGetRegistersFromStack    \n"
-     );
-} */
 
 /**
   * @brief  This function handles Memory Manage exception.
@@ -111,7 +109,9 @@ void MemManage_Handler(void)
 void BusFault_Handler(void)
 {
   /* Go to infinite loop when Bus Fault exception occurs */
-  for (;;);
+  while (1)
+  {
+  }
 }
 
 /**
@@ -122,7 +122,21 @@ void BusFault_Handler(void)
 void UsageFault_Handler(void)
 {
   /* Go to infinite loop when Usage Fault exception occurs */
-  for (;;);
+  while (1)
+  {
+  }
+}
+
+/**
+  * @brief  This function handles SVCall exception.
+  * @param  None
+  * @retval None
+  */
+void SVC_Handler(void)
+{
+  while (1)
+  {
+  }
 }
 
 /**
@@ -132,5 +146,49 @@ void UsageFault_Handler(void)
   */
 void DebugMon_Handler(void)
 {
+  while (1)
+  {
+  }
 }
-/******************* (C) COPYRIGHT 2011 STMicroelectronics *****END OF FILE****/
+
+/**
+  * @brief  This function handles PendSVC exception.
+  * @param  None
+  * @retval None
+  */
+void PendSV_Handler(void)
+{
+  while (1)
+  {
+  }
+}
+
+/**
+  * @brief  This function handles SysTick Handler.
+  * @param  None
+  * @retval None
+  */
+void SysTick_Handler(void)
+{
+  while (1)
+  {
+  }
+}
+
+/******************************************************************************/
+/*                 STM32F4xx Peripherals Interrupt Handlers                   */
+/*  Add here the Interrupt Handler for the used peripheral(s) (PPP), for the  */
+/*  available peripheral interrupt handler's name please refer to the startup */
+/*  file (startup_stm32f40xx.s/startup_stm32f427x.s).                         */
+/******************************************************************************/
+
+
+/**
+  * @}
+  */
+
+/**
+  * @}
+  */
+
+/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

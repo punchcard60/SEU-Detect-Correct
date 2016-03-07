@@ -24,8 +24,9 @@ NUMBER_TEXT_SECTIONS = 4
 NUM_IGNORE_BYTES = 16 #number of bytes to ignore from start of section 
 
 current_path = os.path.dirname(os.path.abspath(__file__))
-hex_dump_filename = os.path.join(current_path, 'gen', 'text_hex_dump_%s.hex')
-crc_exe_path = os.path.join(current_path, '..', 'build', 'crcGenerator')
+build_dir = os.path.join(current_path, '..', 'build')
+hex_dump_filename = os.path.join(build_dir, 'gen', 'text_hex_dump_%s.hex')
+crc_exe_path = os.path.join(build_dir, 'crcGenerator')
 
 section_name = 'text%s'
 

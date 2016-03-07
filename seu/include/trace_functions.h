@@ -31,7 +31,7 @@ typedef struct block {
 extern uint32_t work_area;
 extern uint32_t block_count;
 extern block_t  block_base;
-extern uint32_t crc_expire_times;
+extern uint32_t crc_expire_times[];
 
 #define WORK_AREA		(&work_area)
 #define BLOCK_COUNT 	(*(&block_count))
@@ -71,7 +71,7 @@ inline static uint32_t INLINE_ATTRIBUTE crc_check(uint32_t block_number, uint32_
 	register uint32_t* ptr;
 	register uint32_t* crc_ptr;
 
-	if ((&crc_expire_times)[block_number] > tm_now) {
+	if (crc_expire_times[block_number] > tm_now) {
 		return 0;
 	}
 
@@ -89,7 +89,7 @@ inline static uint32_t INLINE_ATTRIBUTE crc_check(uint32_t block_number, uint32_
 		return 1;
 	}
 
-	(&crc_expire_times)[block_number] = tm_now + CRC_EXPIRE_TIME;
+	crc_expire_times[block_number] = tm_now + CRC_EXPIRE_TIME;
 
 	return 0;
 }
