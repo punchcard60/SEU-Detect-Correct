@@ -1,42 +1,39 @@
 #ifndef _TRACE_FUNCTIONS_H
 #define _TRACE_FUNCTIONS_H
 
+#include <string.h>
 #include <reed_solomon.h>
+#include <stm32f4xx_flash.h>
 
 #ifndef NULL
 #define NULL ((void*)0)
 #endif
 
-#define PTR_TO_UINT(p) ((uint32_t)(p))
-#define UINT_TO_PTR(u) ((void*)(u))
-
 /***** Flash physical description ***************************/
 
-#define K(x) (1024 * (x))
-#define FLASH_SECTIONS  (12)
-#define WORK_SECTION	(0)
-
-extern const uint32_t FlashSections[FLASH_SECTIONS];
+#define K(x) 				(1024 * (x))
+#define FLASH_SECTIONS  	(11)
+#define WORK_FLASH_SECTION	(11)
+extern const uint32_t FlashSections[FLASH_SECTIONS + 1];
 
 typedef struct block {
 	uint16_t	reed_solomon_data[SYMBOL_TABLE_WORDS]; /*same as 3328 * sizeof(uint32_t) so the alignment works. */
 	uint32_t	crc;
 } block_t;
 
-#define BLOCK_IN_FLASH1	0
-#define BLOCK_IN_FLASH2	3
-#define BLOCK_IN_FLASH3	4
+#define FUNCT1_BLOCK	0
+#define FUNCT2_BLOCK	4
+#define FUNCT3_BLOCK	9
 
-/* The linker will assign these values... */
-extern uint32_t work_area;
-extern uint32_t block_count;
-extern block_t  block_base;
-extern uint32_t crc_expire_times[];
+#define FUNCT1_FLASH_SECTION 0
+#define FUNCT2_FLASH_SECTION 3
+#define FUNCT3_FLASH_SECTION 4
 
-#define WORK_AREA		(&work_area)
-#define BLOCK_COUNT 	(*(&block_count))
-#define BLOCK_BASE		(&block_base)
+#define BLOCK_COUNT 	(K(896) / 13312) /* 68 */
+#define BLOCK_BASE		((block_t*)FLASH_BASE)
 #define BLOCK_START(b)	(&BLOCK_BASE[(b)])
+
+extern uint32_t crc_expire_times[BLOCK_COUNT];
 
 #define CRC_EXPIRE_TIME  42 /* how long between crc checks? */
 
@@ -52,17 +49,31 @@ static void __attribute__((no_instrument_function)) section3_profile_func_enter(
 
 /***** Test if block[block_number] overlaps flash_section[section_number] */
 
-inline static uint32_t INLINE_ATTRIBUTE data_block_is_in_flash_section(uint32_t block_number, uint32_t section_number) {
+inline static int INLINE_ATTRIBUTE data_block_is_in_flash_section(int block_number, int section_number) {
 
-	if (PTR_TO_UINT(BLOCK_START(block_number)) >= FlashSections[section_number + 1]) {
+	if (((uint32_t)BLOCK_START(block_number)) >= FlashSections[section_number + 1]) {
 		return 0;
 	}
 
-	if (PTR_TO_UINT(BLOCK_START(block_number + 1)) <= FlashSections[section_number]) {
+	if (((uint32_t)BLOCK_START(block_number + 1)) <= FlashSections[section_number]) {
 		return 0;
 	}
 
 	return 1;
+}
+
+/***** find which flash section that a pointer points into */
+
+inline static uint32_t INLINE_ATTRIBUTE ptr_to_flash_section(uint32_t* ptr) {
+	uint32_t i;
+
+	for (i = 0; i < FLASH_SECTIONS; i++) {
+		if ((uint32_t)ptr >= FlashSections[i] && (uint32_t)ptr < FlashSections[i + 1]) {
+			return i;
+		}
+	}
+
+	return 0xFFFFFFFF;
 }
 
 /***** CRC function ***************************/
@@ -77,8 +88,8 @@ inline static uint32_t INLINE_ATTRIBUTE crc_check(uint32_t block_number, uint32_
 
 	CRC->CR = CRC_CR_RESET;
 
-	ptr = UINT_TO_PTR(BLOCK_START(block_number));
-	crc_ptr = UINT_TO_PTR(BLOCK_START(block_number + 1) - sizeof(uint32_t));
+	ptr = (uint32_t*)BLOCK_START(block_number);
+	crc_ptr = (uint32_t*)(((uint32_t)ptr) + sizeof(block_t) - sizeof(uint32_t));
 
 	while(ptr < crc_ptr)
 	{
@@ -94,27 +105,93 @@ inline static uint32_t INLINE_ATTRIBUTE crc_check(uint32_t block_number, uint32_
 	return 0;
 }
 
+
+inline static void INLINE_ATTRIBUTE flash_copy_to_work(int flash_section, int count, error_marker_t** corrections){
+	uint32_t* src = (uint32_t*)FlashSections[flash_section];
+	uint32_t* src_limit = (uint32_t*)FlashSections[flash_section + 1];
+	uint32_t dest = (uint32_t)FlashSections[WORK_FLASH_SECTION];
+	int i = 0;
+
+	FLASH_Unlock();
+	FLASH_EraseSector((WORK_FLASH_SECTION << 3), VoltageRange_3);
+
+	while (src < src_limit && i < count) {
+		FLASH_ProgramWord(dest, (src == corrections[i]->pointer) ? corrections[i++]->corrected_dword : *src);
+		src++;
+		dest += sizeof(uint32_t);
+	}
+
+	while (src < src_limit) {
+		FLASH_ProgramWord(dest, *src++);
+		dest += sizeof(uint32_t);
+	}
+
+	FLASH_Lock();
+}
+
+inline static void INLINE_ATTRIBUTE flash_copy_from_work(int flash_section) {
+	uint32_t* src = (uint32_t*)FlashSections[WORK_FLASH_SECTION];
+	uint32_t dest = FlashSections[flash_section];
+	uint32_t dest_limit = FlashSections[flash_section + 1];
+
+	FLASH_Unlock();
+	FLASH_EraseSector((uint32_t)flash_section << 3, VoltageRange_3);
+
+	while (dest < dest_limit) {
+		FLASH_ProgramWord(dest, *src);
+		src++;
+		dest += sizeof(uint32_t);
+	}
+
+	FLASH_Lock();
+}
+
 /***** block fix functions ***************************/
 
 inline static void INLINE_ATTRIBUTE fix_block(uint32_t block_number) {
-	word_t error_offsets[RS_MAX_ERRORS];
-	word_t corrected_values[RS_MAX_ERRORS];
+	error_marker_t corrections[RS_MAX_CORRECTIONS];
+	error_marker_t* sorted_corrections[RS_MAX_CORRECTIONS];
+	error_marker_t* ptr;
 
-	uint32_t blk_start = PTR_TO_UINT(BLOCK_START(block_number));
-	uint32_t error_location;
+	int	correction_count;
+	int i, swaps;
+	uint32_t flash_section;
 
-	int error_count = decode_rs(UINT_TO_PTR(blk_start), error_offsets, corrected_values);
-	int i, j;
+	if (decode_rs((symbol_t*)BLOCK_START(block_number), &correction_count, corrections) > 0)
+	{ /* decode failed */
 
-	for(i = 0; i < error_count; i++) {
-		error_location = blk_start + error_offsets[i];
-		for(j=1; j < FLASH_SECTIONS; j++) {
-			if (error_location >= FlashSections[j] &&
-			    error_location < FlashSections[j + 1]) {
-/* $$$ Call Copy Flash functions here */
-			}
+		/* Sort the returned pointers */
+		for(i=0; i<correction_count; i++) {
+			sorted_corrections[i] = &corrections[i];
 		}
 
+		do {
+			swaps = 0;
+
+			for(i = 0; i < correction_count - 1; i++) {
+				if (sorted_corrections[i]->pointer > sorted_corrections[i + 1]->pointer) {
+					swaps ++;
+					ptr = sorted_corrections[i];
+					sorted_corrections[i] = sorted_corrections[i + 1];
+					sorted_corrections[i + 1] = ptr;
+				}
+			}
+		} while (swaps > 0);
+
+		/* Blocks can straddle flash sections so process each flash section */
+		flash_section = ptr_to_flash_section(sorted_corrections[0]->pointer);
+		i = 1;
+		while ((i < correction_count) && (flash_section == ptr_to_flash_section(sorted_corrections[i]->pointer))) {
+			i++;
+		}
+		flash_copy_to_work(flash_section, i, sorted_corrections);
+		flash_copy_from_work(flash_section);
+
+		if (i < correction_count) {
+			flash_section++;
+			flash_copy_to_work(flash_section, correction_count - i, &sorted_corrections[i]);
+			flash_copy_from_work(flash_section);
+		}
 	}
 }
 
