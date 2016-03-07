@@ -18,7 +18,7 @@
 #include <stm32f4xx.h>
 #include <trace_functions.h>
 
-uint32_t* crc_expire_times;
+ uint32_t crc_expire_times[BLOCK_COUNT];
 
 const uint32_t FlashSections[FLASH_SECTIONS + 1] = {
     FLASH_BASE,
@@ -36,7 +36,7 @@ const uint32_t FlashSections[FLASH_SECTIONS + 1] = {
 };
 
 void __cyg_profile_func_enter (void* this_func, void* caller) {
-	section1_profile_func_enter((uint32_t)caller - BLOCK_BASE / sizeof(block_t));
+	section1_profile_func_enter((uint32_t)caller - (uint32_t)BLOCK_BASE / sizeof(block_t));
 }
 
 /**************************************************************************/
