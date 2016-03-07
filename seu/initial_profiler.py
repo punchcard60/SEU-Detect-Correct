@@ -20,11 +20,12 @@
 import re
 import os
 
-headLinkScriptTemplate = os.path.join('seu', 'gen', 'template_half_0.ld')
-tailLinkScriptTemplate = os.path.join('seu', 'gen', 'template_half_1.ld')
-generatedLinkerScript = os.path.join('seu', 'gen', 'secondary_seu_link.ld')
-elfInput = os.path.join('seu', 'gen', 'readElf.data')
-functionMap = os.path.join('seu', 'gen', 'fullMap.data')
+genDir = os.path.join('build', 'gen')
+headLinkScriptTemplate = os.path.join(genDir, 'template_half_0.ld')
+tailLinkScriptTemplate = os.path.join(genDir, 'template_half_1.ld')
+generatedLinkerScript = os.path.join(genDir, 'secondary_seu_link.ld')
+elfInput = os.path.join(genDir, 'readElf.data')
+functionMap = os.path.join(genDir, 'fullMap.data')
 
 functionEntryFormat =    '        *(.text.%s)\n'
 functionPadFormat =      '        . += %s;\n'
