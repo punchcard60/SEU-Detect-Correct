@@ -18,6 +18,7 @@
 #ifndef _TRACE_FUNCTIONS_H
 #define _TRACE_FUNCTIONS_H
 
+#include <stdio.h>
 #include <string.h>
 #include <reed_solomon.h>
 #include <decode_rs.h>
@@ -95,6 +96,7 @@ inline static uint32_t INLINE_ATTRIBUTE crc_check(uint32_t block_number, uint64_
 	register uint32_t* crc_ptr;
 
 	if (crc_expire_times[block_number] > tm_now) {
+printf("CRC Check Time %d OK\n", block_number);
 		return 0;
 	}
 
@@ -113,6 +115,7 @@ inline static uint32_t INLINE_ATTRIBUTE crc_check(uint32_t block_number, uint64_
 	}
 
 	crc_expire_times[block_number] = tm_now + CRC_EXPIRE_TIME;
+printf("CRC Check Compare %d OK\n", block_number);
 
 	return 0;
 }

@@ -64,5 +64,9 @@ void uart_init(void) {
 
   /* Enable USART */
   USART_Cmd(USART6, ENABLE);
+
+/* $$$ */
+		USART6->DR = (uint16_t)'A';
+
 }
 

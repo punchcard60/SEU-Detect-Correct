@@ -9,7 +9,7 @@ TOOLCHAIN_PREFIX := arm-none-eabi
 
 OPTLVL:=0
 #DBG:=-g
-DBG:=
+DBG:=-g
 
 FREERTOS:=$(CURDIR)/FreeRTOS
 STARTUP:=$(CURDIR)/hardware
@@ -42,11 +42,9 @@ ASRC=startup_stm32f40_41xxx.s
 #          $(FREERTOS)/portable/MemMang \
 #          $(FREERTOS)/portable/GCC/ARM_CM4F
 
-UNCHECKED_SRC := hardware/stm32f4xx_it.c #compiled without finstrument-function
-SRC := main.c \
-       hardware/system_stm32f4xx.c \
-       hardware/uart.c \
-       lib/syscall/syscall.c
+UNCHECKED_SRC := hardware/system_stm32f4xx.c hardware/uart.c lib/syscall/syscall.c#compiled without finstrument-function
+SRC := main.c
+
 
 # FreeRTOS sources
 SRC += $(FREERTOS)/event_groups.c \
@@ -123,6 +121,7 @@ GCC=gcc #Standard Desktop GCC
 PYTHON = python3
 
 OBJ = $(SRC:%.c=$(BUILD_DIR)/%.o)
+UNCHECKED_OBJ := $(BUILD_DIR)/system_stm32f4xx.o $(BUILD_DIR)/uart.o $(BUILD_DIR)/syscall.o
 RS_SRCS := $(RS_SRC)/alpha_to.c $(RS_SRC)/index_of.c $(RS_SRC)/genpoly.c
 #RS_OBJS := $(RS_SRCS:%.c=$(BUILD_DIR)/%.o)
 
@@ -153,7 +152,9 @@ $(BUILD_DIR)/%.o: %.c
 	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
 
 UNCHECKED_OBJS: $(OBJ)
-	@$(CC) $(CFLAGS) hardware/stm32f4xx_it.c -c -o build/stm32f4xx_it.o
+	@$(CC) $(CFLAGS) hardware/system_stm32f4xx.c -c -o build/system_stm32f4xx.o
+	@$(CC) $(CFLAGS) hardware/uart.c -c -o build/uart.o
+	@$(CC) $(CFLAGS) lib/syscall/syscall.c -c -o build/syscall.o
 	@$(CC) $(CFLAGS) $(TRACE_FILES) -c -o $(TRACE_OBJ)
 
 INITIAL_COMPILATION: UNCHECKED_OBJS $(RS_OBJS)
@@ -161,7 +162,7 @@ INITIAL_COMPILATION: UNCHECKED_OBJS $(RS_OBJS)
 	@$(AS) -o $(ASRC:%.s=$(BUILD_DIR)/%.o) $(STARTUP)/$(ASRC)
 	@echo [LD] $(TARGET).elf
 	@test -d $(BIN_DIR) || mkdir -p $(BIN_DIR)
-	$(CC) -o $(BIN_DIR)/initial$(TARGET).elf -T$(INITIAL_LINKERSCRIPT) $(LDFLAGS) $(OBJ) $(RS_OBJS) $(TRACE_OBJ) $(ASRC:%.s=$(BUILD_DIR)/%.o) $(LDLIBS)
+	$(CC) -o $(BIN_DIR)/initial$(TARGET).elf -T$(INITIAL_LINKERSCRIPT) $(LDFLAGS) $(OBJ) $(UNCHECKED_OBJ) $(RS_OBJS) $(TRACE_OBJ) $(ASRC:%.s=$(BUILD_DIR)/%.o) $(LDLIBS)
 
 INITIAL_PROFILER: INITIAL_COMPILATION
 	@echo "Starting Initial Profiler"
@@ -173,7 +174,7 @@ INITIAL_PROFILER: INITIAL_COMPILATION
 
 SECONDARY_COMPILATION: INITIAL_PROFILER
 	@echo "Starting Secondary Complilation"
-	@$(CC) -Wl,-Map,$(TARGET).map -o $(BIN_DIR)/final$(TARGET).elf $(SECONDARY_LINKERSCRIPT) $(LDFLAGS) $(OBJ) $(RS_OBJS) $(TRACE_OBJ) $(HEADER_OBJ) $(ASRC:%.s=$(BUILD_DIR)/%.o) $(LDLIBS)
+	@$(CC) -Wl,-Map,$(TARGET).map -o $(BIN_DIR)/final$(TARGET).elf $(SECONDARY_LINKERSCRIPT) $(LDFLAGS) $(OBJ) $(UNCHECKED_OBJ) $(RS_OBJS) $(TRACE_OBJ) $(HEADER_OBJ) $(ASRC:%.s=$(BUILD_DIR)/%.o) $(LDLIBS)
 	@echo "Secondary Complilation Completed"
 
 SECONDARY_PROFILER: SECONDARY_COMPILATION

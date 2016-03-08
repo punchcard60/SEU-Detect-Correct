@@ -91,14 +91,18 @@ def writeScript():
             outputFile.write('%s' % line)
 
         section1 = fnData.pop('section1_profile_func_enter')
+		section1fix = fnData.pop('section1_fix_block')
         section2 = fnData.pop('section2_profile_func_enter')
+		section2fix = fnData.pop('section2_fix_block')
         section3 = fnData.pop('section3_profile_func_enter')
+		section3fix = fnData.pop('section3_fix_block')
         blknum = 0
 
         section1.writeEntry(outputFile)
+        section1fix.writeEntry(outputFile)
 
         # block[0] contains the block count which is 4 bytes long
-        bytesAvailable = PAYLOADSIZE - 4 - section1.bytes
+        bytesAvailable = PAYLOADSIZE - 4 - section1.bytes - section1fix.bytes
 
         def writeFunction(data):
             nonlocal bytesAvailable
@@ -122,18 +126,22 @@ def writeScript():
             outputFile.write(blockFinishAndStartNew.format(blktrailer, blknum))
             bytesAvailable = PAYLOADSIZE
 
-            if blknum == PROFILE1_BLOCK:
+            if blknum == PROFILE2_BLOCK:
                 writeFunction(section2)
-            elif blknum == PROFILE2_BLOCK:
+                writeFunction(section2fix)
+            elif blknum == PROFILE3_BLOCK:
                 writeFunction(section3)
+                writeFunction(section3fix)
 
         if not section2.written:
-            outputFile.write(functionPadFormat % (((PROFILE1_BLOCK - blknum) * BLOCKSIZE) - section2.bytes))
+            outputFile.write(functionPadFormat % (((PROFILE2_BLOCK - blknum) * BLOCKSIZE) - section2.bytes - section2fix.bytes))
             writeFunction(section2)
+            writeFunction(section2fix)
 
         if not section3.written:
-            outputFile.write(functionPadFormat % (((PROFILE2_BLOCK - blknum) * BLOCKSIZE) - section3.bytes))
+            outputFile.write(functionPadFormat % (((PROFILE3_BLOCK - blknum) * BLOCKSIZE) - section3.bytes - section3fix.bytes))
             writeFunction(section3)
+            writeFunction(section3fix)
 
         for line in tailData: # write second half of linkerscript
             outputFile.write('%s' % line)

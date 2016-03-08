@@ -335,6 +335,9 @@ static void SystemInit_ExtMemCtl(void);
   * @param  None
   * @retval None
   */
+
+ #include <uart.h>
+
 void SystemInit(void)
 {
   /* FPU settings ------------------------------------------------------------*/
@@ -366,6 +369,7 @@ void SystemInit(void)
 
   /* Configure the System clock source, PLL Multiplier and Divider factors,
      AHB/APBx prescalers and Flash settings ----------------------------------*/
+
   SetSysClock();
 
   /* Configure the Vector Table location add offset address ------------------*/
@@ -375,7 +379,8 @@ void SystemInit(void)
   SCB->VTOR = FLASH_BASE | VECT_TAB_OFFSET; /* Vector Table Relocation in Internal FLASH */
 #endif
 
-	seu_start_check();
+	uart_init();
+	/* seu_start_check(); */
 }
 
 /**

@@ -14,6 +14,8 @@ int main(void) {
   /* Connect up printf() */
   uart_init();
 
+printf("uart_int() OK\n");
+
   /* start up the SEU detect and correct functionality. */
   seu_init();
 
