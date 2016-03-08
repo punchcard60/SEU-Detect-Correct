@@ -34,7 +34,14 @@
 *                   newlib version 1.17.0
 ****************************************************************************/
 
-#include "uart.h"
+#include <stdlib.h>
+#include <errno.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
+#include "stdio.h"
+#include <uart.h>
 
 /***************************************************************************/
 

@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <uart.h>
+#include <seu.h>
 
 void test_FPU_test(void* p);
 

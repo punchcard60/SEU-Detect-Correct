@@ -45,6 +45,7 @@ ASRC=startup_stm32f40_41xxx.s
 UNCHECKED_SRC := hardware/stm32f4xx_it.c #compiled without finstrument-function
 SRC := main.c \
        hardware/system_stm32f4xx.c \
+       hardware/uart.c \
        lib/syscall/syscall.c
 
 # FreeRTOS sources
@@ -67,6 +68,7 @@ SRC += $(STDPERIPH_SRC)/stm32f4xx_syscfg.c \
        $(STDPERIPH_SRC)/stm32f4xx_flash.c \
        $(STDPERIPH_SRC)/stm32f4xx_gpio.c \
        $(STDPERIPH_SRC)/stm32f4xx_i2c.c \
+       $(STDPERIPH_SRC)/stm32f4xx_pwr.c \
        $(STDPERIPH_SRC)/stm32f4xx_rcc.c \
        $(STDPERIPH_SRC)/stm32f4xx_spi.c \
        $(STDPERIPH_SRC)/stm32f4xx_tim.c \
@@ -93,18 +95,18 @@ CDEFS+= -D'HSE_VALUE=((uint32_t)24000000)'
 
 MCU_FLAGS:=-mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard
 COMMONFLAGS=-O$(OPTLVL) $(DBG) -Wall -ffunction-sections -fdata-sections
-CFLAGS=$(COMMONFLAGS) $(MCU_FLAGS) $(INCLUDE) $(CDEFS) -falign-functions=32
+CFLAGS=$(COMMONFLAGS) $(MCU_FLAGS) $(INCLUDE) $(CDEFS)
 #LDLIBS=$(TOOLCHAIN_ROOT)/arm-none-eabi/lib/armv7e-m/fpu/libc.a $(TOOLCHAIN_ROOT)/arm-none-eabi/lib/armv7e-m/fpu/libm.a
 #LDFLAGS=$(COMMONFLAGS) -fno-exceptions -nostartfiles $(MCU_FLAGS)
 LDLIBS=-lm
-LDFLAGS=$(COMMONFLAGS) -ffast-math -fno-exceptions $(MCU_FLAGS)
+LDFLAGS=$(COMMONFLAGS) -fno-exceptions $(MCU_FLAGS)
 SEUFLAG=-finstrument-functions
 
 #INITIAL_LINKERSCRIPT=-Tseu/initial_seu_link.ld
 INITIAL_LINKERSCRIPT=$(REED_SOLOMON)/STM32F4xx_FLASH.ld
 SECONDARY_LINKERSCRIPT=-Tbuild/gen/secondary_seu_link.ld
 
-TRACE_FILES = seu/src/trace_functions.c
+TRACE_FILES:=$(SEU_SRC_DIR)/trace_functions.c
 TRACE_OBJ = build/trace_functions.o
 
 # don't count on having the tools in the PATH...
@@ -131,7 +133,7 @@ all: utils SECONDARY_PROFILER
 utils:
 	@echo [CC] crcGenerator.c
 	@test -d $(BUILD_DIR) || mkdir -p $(BUILD_DIR)
-	$(GCC) $(CRC_SRCS) $(RS_SRCS) $(INCLUDE) -I$(REED_SOLOMON)/include -g -o $(BUILD_DIR)/crcGenerator
+	$(GCC) $(INCLUDE) -g $(CRC_SRCS) $(RS_SRCS) -o $(BUILD_DIR)/crcGenerator
 
 $(BUILD_DIR)/alpha_to.o: $(RS_SRC)/alpha_to.c $(REED_SOLOMON)/include/*
 	@echo [CC] $(notdir $<)

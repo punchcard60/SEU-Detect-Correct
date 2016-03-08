@@ -1,8 +1,26 @@
+/*
+ * Copyright (C) 2016 Nano Avionics
+ *
+ * Licensed under the GNU GENERAL PUBLIC LICENSE, Version 3 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License from the Free Software Foundation, Inc.
+ * at
+ *
+ *    http://fsf.org/
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #ifndef _TRACE_FUNCTIONS_H
 #define _TRACE_FUNCTIONS_H
 
 #include <string.h>
 #include <reed_solomon.h>
+#include <decode_rs.h>
 #include <stm32f4xx_flash.h>
 #include <reboot.h>
 
@@ -40,8 +58,6 @@ extern uint64_t crc_expire_times[BLOCK_COUNT];
 void __attribute__((no_instrument_function)) section1_profile_func_enter(uint32_t block_number, uint32_t depth);
 void __attribute__((no_instrument_function)) section2_profile_func_enter(uint32_t block_number, uint32_t depth);
 void __attribute__((no_instrument_function)) section3_profile_func_enter(uint32_t block_number, uint32_t depth);
-
-void seu_init(void);
 
 /***** Test if block[block_number] overlaps flash_section[section_number] */
 

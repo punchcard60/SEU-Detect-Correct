@@ -14,16 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
-#include <stdint.h>
-#include "reed_solomon.h"
 
-typedef struct block { 
-    uint16_t    reed_solomon_data[SYMBOL_TABLE_WORDS];
-    uint32_t    crc;
-} block_t;
+#ifndef _SEU_H
+#define _SEU_H
 
-struct blockWrapper { 
-    uint32_t    block_count;
-    block_t*    data;
-};
+void seu_init(void);
+
+#endif /* _SEU_H */

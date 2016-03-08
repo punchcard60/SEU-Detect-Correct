@@ -1,32 +1,28 @@
+/*
+ * Copyright (C) 2016 Nano Avionics
+ *
+ * Licensed under the GNU GENERAL PUBLIC LICENSE, Version 3 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License from the Free Software Foundation, Inc.
+ * at
+ *
+ *    http://fsf.org/
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-#ifndef _UART_H
-#define _UART_H
-
-#include <stdlib.h>
-#include <errno.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <sys/types.h>
+#include <uart.h>
 #include <stm32f4xx_gpio.h>
 #include <stm32f4xx_rcc.h>
-#include <stm32f4xx_usart.h>
-
-#ifndef INLINE_ATTRIBUTE
-#define INLINE_ATTRIBUTE __attribute__((no_instrument_function, always_inline))
-#endif
-
-static inline void INLINE_ATTRIBUTE uart_putc(char c) {
-	if (USART6->CR1 & USART_CR1_UE) {
-		while ((USART6->SR & USART_FLAG_TXE) == 0) {
-		}
-		USART6->DR = (uint16_t)(c);
-	}
-}
 
 /************************************************************
  * Configure USART6(PC6, PC7)
  */
-static inline void INLINE_ATTRIBUTE uart_init(void) {
+void uart_init(void) {
   GPIO_InitTypeDef GPIO_InitStructure;
   USART_InitTypeDef USART_InitStruct;
 
@@ -70,4 +66,3 @@ static inline void INLINE_ATTRIBUTE uart_init(void) {
   USART_Cmd(USART6, ENABLE);
 }
 
-#endif /* _UART_H */

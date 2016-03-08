@@ -16,6 +16,7 @@
  */
 
 #include <FreeRTOS.h>
+#include <timers.h>
 #include <stm32f4xx.h>
 #include <trace_functions.h>
 

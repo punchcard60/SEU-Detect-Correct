@@ -21,12 +21,18 @@
 #include <stdlib.h>
 #include <time.h>
 #include "crcmodel.h"
-#include "crc_generator.h"
-#include "reed_solomon.h"
+/* #include "crc_generator.h" */
+#include <reed_solomon.h>
+#include <encode_rs.h>
+
+typedef struct block {
+	uint16_t	reed_solomon_data[SYMBOL_TABLE_WORDS]; /*same as 3328 * sizeof(uint32_t) so the alignment works. */
+	uint32_t	crc;
+} block_t;
 
 static uint32_t CRC_CalcBlockCRC (uint32_t *buffer, uint32_t words);
 
-int main(int argc, char** argv) { 
+int main(int argc, char** argv) {
     // arguments:
     // argv[1] input file name
     // argv[2] offset to start of .text section
@@ -81,7 +87,7 @@ int main(int argc, char** argv) {
 
         memcpy(parityData, &(blocks[idx].reed_solomon_data[parityStartIdx]), PARITY_SYMBOL_COUNT);
 
-        //Printing this data for debugging purposes 
+        //Printing this data for debugging purposes
         printf("%08x,", crc);
         for (x = 0; x < PARITY_SYMBOL_COUNT; x++) {
             printf("%x", parityData[x]);

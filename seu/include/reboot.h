@@ -1,3 +1,28 @@
+/*
+ * Copyright (C) 2016 Nano Avionics
+ *
+ * Licensed under the GNU GENERAL PUBLIC LICENSE, Version 3 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License from the Free Software Foundation, Inc.
+ * at
+ *
+ *    http://fsf.org/
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef _REBOOT_H
+#define _REBOOT_H
+
+#include <stm32f4xx_pwr.h>
+
+#ifndef INLINE_ATTRIBUTE
+#define INLINE_ATTRIBUTE __attribute__((no_instrument_function, always_inline))
+#endif
 
 typedef struct {
 	uint32_t signature;
@@ -15,8 +40,8 @@ void __attribute__((no_instrument_function)) section3_fix_block(uint32_t block_n
 inline static reboot_block_t* INLINE_ATTRIBUTE access_backup_domain_sram() {
 	/* Get access to the 4K of SRAM in the backup domain */
     RCC->APB1ENR |= RCC_APB1ENR_PWREN;
-	PWR_BackupAccessCmd(ENABLE)
-    RCC->RCC_AHB1ENR |= RCC_AHB1ENR_BKPSRAMEN;
+	PWR_BackupAccessCmd(ENABLE);
+    RCC->AHB1ENR |= RCC_AHB1ENR_BKPSRAMEN;
 	return (reboot_block_t*)BKPSRAM_BASE;
 }
 
@@ -66,3 +91,5 @@ inline static void INLINE_ATTRIBUTE seu_start_check()
 		}
 	}
 }
+
+#endif /* _REBOOT_H */
