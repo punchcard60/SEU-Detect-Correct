@@ -66,34 +66,16 @@ int main(int argc, char** argv) {
     }
 
     uint32_t offset = strtol(argv[2], NULL, 16);
-    uint32_t blockCount = *((uint32_t *) (inputData + offset)); //pointer to sybol defined in Linker Script
-    struct block* blocks = (struct block*)(inputData + offset + 8);
+	uint32_t block_offset = offset - *((uint32_t*)(inputData + offset));
+    block_t* blocks = (block_t*)(inputData + block_offset);
+    uint32_t blockCount = *((uint32_t*)(inputData + offset + 4)); //pointer to symbol defined in Linker Script
 
-    uint32_t numWords = sizeof(block_t) / sizeof(uint32_t);
-    uint32_t blockToEncode [numWords];
-
-    uint32_t crc;
-
-    uint16_t parityData[PARITY_SYMBOL_COUNT]; //used to print hex of parity symbols
-
-    int idx, x;
-    int parityStartIdx = SYMBOL_TABLE_WORDS - PARITY_SYMBOL_COUNT - 1;
-
+    int idx, numWords;
+	numWords = (sizeof(block_t) - sizeof(uint32_t)) / sizeof(uint32_t);
     for (idx = 0; idx < blockCount; idx++) {
-        memcpy(blockToEncode, &(blocks[idx]), sizeof(block_t)-1);
-        encode_rs((word_t*) blockToEncode);
-        crc = CRC_CalcBlockCRC((uint32_t*)blockToEncode, numWords);
-        blocks[idx].crc = crc;
-
-        memcpy(parityData, &(blocks[idx].reed_solomon_data[parityStartIdx]), PARITY_SYMBOL_COUNT);
-
-        //Printing this data for debugging purposes
-        printf("%08x,", crc);
-        for (x = 0; x < PARITY_SYMBOL_COUNT; x++) {
-            printf("%x", parityData[x]);
-        }
-        printf("\n");
-    }
+        encode_rs((word_t*) &blocks[idx]);
+        blocks[idx].crc = CRC_CalcBlockCRC((uint32_t*)&blocks[idx], numWords);
+	}
 
     //Write modified binary to new file
     fwrite(inputData, sizeof(char), inputFileLen, outputFile);

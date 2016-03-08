@@ -31,15 +31,15 @@ functionPadFormat =      '        . += %s;\n'
 blockFinishAndStartNew = '        . += {0};\n/****** Block {1} ******/\n'
 
 ALIGNTO = 4
-BLOCKSIZE = 13312 # bytes. Exactly equals 6656 words or 3328 dwords.
+BLOCKSIZE = 13312 + 4 # bytes. Exactly equals 6656 words or 3328 dwords + CRC
 PAYLOADSIZE = 13286
 
 BLOCKTRAILER = BLOCKSIZE - PAYLOADSIZE
-PROFILE0_BLOCK = 0
-PROFILE1_BLOCK = 4
-PROFILE2_BLOCK = 9
+PROFILE1_BLOCK = 0
+PROFILE2_BLOCK = 4
+PROFILE3_BLOCK = 9
 
-MIN_PROG_SIZE = PROFILE2_BLOCK * BLOCKSIZE
+MIN_PROG_SIZE = PROFILE3_BLOCK * BLOCKSIZE
 
 class FunctionData:
     def __init__(self, name, length):
@@ -91,18 +91,19 @@ def writeScript():
             outputFile.write('%s' % line)
 
         section1 = fnData.pop('section1_profile_func_enter')
-		section1fix = fnData.pop('section1_fix_block')
+        section1fix = fnData.pop('section1_fix_block')
         section2 = fnData.pop('section2_profile_func_enter')
-		section2fix = fnData.pop('section2_fix_block')
+        section2fix = fnData.pop('section2_fix_block')
         section3 = fnData.pop('section3_profile_func_enter')
-		section3fix = fnData.pop('section3_fix_block')
+        section3fix = fnData.pop('section3_fix_block')
         blknum = 0
 
         section1.writeEntry(outputFile)
         section1fix.writeEntry(outputFile)
 
-        # block[0] contains the block count which is 4 bytes long
-        bytesAvailable = PAYLOADSIZE - 4 - section1.bytes - section1fix.bytes
+        # block[0] contains the block count which is 4 bytes long and
+        # the pointer to the start of the blocks which is 4 bytes long
+        bytesAvailable = PAYLOADSIZE - 8 - section1.bytes - section1fix.bytes
 
         def writeFunction(data):
             nonlocal bytesAvailable

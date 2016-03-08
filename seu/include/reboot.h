@@ -19,6 +19,7 @@
 #define _REBOOT_H
 
 #include <stm32f4xx_pwr.h>
+#include <seu.h>
 
 #ifndef INLINE_ATTRIBUTE
 #define INLINE_ATTRIBUTE __attribute__((no_instrument_function, always_inline))
@@ -58,6 +59,8 @@ inline static void INLINE_ATTRIBUTE reboot_and_fix_block(uint32_t block_number, 
 
 inline static void INLINE_ATTRIBUTE seu_start_check()
 {
+	seu_init();
+
 	reboot_block_t* backup_sram = access_backup_domain_sram();
 
 	if (backup_sram->signature != SEU_FIX_SIGNATURE) {

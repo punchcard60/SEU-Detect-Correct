@@ -33,7 +33,6 @@
 *  28.03.09  mifi   First Version, based on the original syscall.c from
 *                   newlib version 1.17.0
 ****************************************************************************/
-
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
@@ -41,7 +40,8 @@
 #include <sys/types.h>
 
 #include "stdio.h"
-#include <uart.h>
+
+#include "uart.h"
 
 /***************************************************************************/
 

@@ -84,20 +84,21 @@ CRC_SRCS = lib/CRC_Generator/crcmodel.c \
            lib/CRC_Generator/main.c
 
 CDEFS=-DUSE_STDPERIPH_DRIVER
-CDEFS+=-DSTM32F4XX -DSTM32F40_41xxx
-#CDEFS+=-DSTM32F40_41xxx
+#CDEFS+=-DSTM32F4XX -DSTM32F40_41xxx
+CDEFS+=-DSTM32F40_41xxx
 CDEFS+= -D'HSE_VALUE=((uint32_t)24000000)'
 #CDEFS+=-D__FPU_PRESENT=1
 #CDEFS+=-D__FPU_USED=1
 #CDEFS+=-DARM_MATH_CM4
 
-MCU_FLAGS:=-mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard
+MCU_FLAGS:=-mcpu=cortex-m4 -mthumb -mlittle-endian -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb-interwork
 COMMONFLAGS=-O$(OPTLVL) $(DBG) -Wall -ffunction-sections -fdata-sections
 CFLAGS=$(COMMONFLAGS) $(MCU_FLAGS) $(INCLUDE) $(CDEFS)
 #LDLIBS=$(TOOLCHAIN_ROOT)/arm-none-eabi/lib/armv7e-m/fpu/libc.a $(TOOLCHAIN_ROOT)/arm-none-eabi/lib/armv7e-m/fpu/libm.a
 #LDFLAGS=$(COMMONFLAGS) -fno-exceptions -nostartfiles $(MCU_FLAGS)
 LDLIBS=-lm
 LDFLAGS=$(COMMONFLAGS) -fno-exceptions $(MCU_FLAGS)
+
 SEUFLAG=-finstrument-functions
 
 #INITIAL_LINKERSCRIPT=-Tseu/initial_seu_link.ld
@@ -132,7 +133,7 @@ all: utils SECONDARY_PROFILER
 utils:
 	@echo [CC] crcGenerator.c
 	@test -d $(BUILD_DIR) || mkdir -p $(BUILD_DIR)
-	$(GCC) $(INCLUDE) -g $(CRC_SRCS) $(RS_SRCS) -o $(BUILD_DIR)/crcGenerator
+	@$(GCC) $(INCLUDE) -g $(CRC_SRCS) $(RS_SRCS) -o $(BUILD_DIR)/crcGenerator
 
 $(BUILD_DIR)/alpha_to.o: $(RS_SRC)/alpha_to.c $(REED_SOLOMON)/include/*
 	@echo [CC] $(notdir $<)
@@ -162,7 +163,7 @@ INITIAL_COMPILATION: UNCHECKED_OBJS $(RS_OBJS)
 	@$(AS) -o $(ASRC:%.s=$(BUILD_DIR)/%.o) $(STARTUP)/$(ASRC)
 	@echo [LD] $(TARGET).elf
 	@test -d $(BIN_DIR) || mkdir -p $(BIN_DIR)
-	$(CC) -o $(BIN_DIR)/initial$(TARGET).elf -T$(INITIAL_LINKERSCRIPT) $(LDFLAGS) $(OBJ) $(UNCHECKED_OBJ) $(RS_OBJS) $(TRACE_OBJ) $(ASRC:%.s=$(BUILD_DIR)/%.o) $(LDLIBS)
+	@$(CC) -o $(BIN_DIR)/initial$(TARGET).elf -T$(INITIAL_LINKERSCRIPT) $(LDFLAGS) $(OBJ) $(UNCHECKED_OBJ) $(RS_OBJS) $(TRACE_OBJ) $(ASRC:%.s=$(BUILD_DIR)/%.o) $(LDLIBS)
 
 INITIAL_PROFILER: INITIAL_COMPILATION
 	@echo "Starting Initial Profiler"

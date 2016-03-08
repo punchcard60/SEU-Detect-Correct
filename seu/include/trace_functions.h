@@ -20,6 +20,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 #include <reed_solomon.h>
 #include <decode_rs.h>
 #include <stm32f4xx_flash.h>
@@ -96,7 +97,7 @@ inline static uint32_t INLINE_ATTRIBUTE crc_check(uint32_t block_number, uint64_
 	register uint32_t* crc_ptr;
 
 	if (crc_expire_times[block_number] > tm_now) {
-printf("CRC Check Time %d OK\n", block_number);
+printf("CRC Check Time %"PRIu32" OK\n", block_number);
 		return 0;
 	}
 
@@ -115,7 +116,7 @@ printf("CRC Check Time %d OK\n", block_number);
 	}
 
 	crc_expire_times[block_number] = tm_now + CRC_EXPIRE_TIME;
-printf("CRC Check Compare %d OK\n", block_number);
+printf("CRC Check Compare %"PRIu32" OK\n", block_number);
 
 	return 0;
 }

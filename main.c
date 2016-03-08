@@ -11,13 +11,7 @@ void test_FPU_test(void* p);
 int main(void) {
   uint8_t ret;
 
-  /* Connect up printf() */
-  uart_init();
-
-printf("uart_int() OK\n");
-
-  /* start up the SEU detect and correct functionality. */
-  seu_init();
+	uart_init();
 
   // Create a task
   ret = xTaskCreate(test_FPU_test, "FPU", configMINIMAL_STACK_SIZE, NULL, 1, NULL);

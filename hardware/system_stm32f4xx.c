@@ -379,8 +379,6 @@ void SystemInit(void)
   SCB->VTOR = FLASH_BASE | VECT_TAB_OFFSET; /* Vector Table Relocation in Internal FLASH */
 #endif
 
-	uart_init();
-	/* seu_start_check(); */
 }
 
 /**

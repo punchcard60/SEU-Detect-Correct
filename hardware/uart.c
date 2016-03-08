@@ -54,7 +54,7 @@ void uart_init(void) {
 
   /* USART configuration */
   USART_StructInit(&USART_InitStruct);
-  USART_InitStruct.USART_BaudRate = 115200;
+  USART_InitStruct.USART_BaudRate = 38400;
   USART_InitStruct.USART_WordLength = USART_WordLength_8b;
   USART_InitStruct.USART_StopBits = USART_StopBits_1;
   USART_InitStruct.USART_Parity = USART_Parity_No;
@@ -64,9 +64,6 @@ void uart_init(void) {
 
   /* Enable USART */
   USART_Cmd(USART6, ENABLE);
-
-/* $$$ */
-		USART6->DR = (uint16_t)'A';
 
 }
 
