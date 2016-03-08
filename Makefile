@@ -166,7 +166,7 @@ INITIAL_COMPILATION: UNCHECKED_OBJS $(RS_OBJS)
 INITIAL_PROFILER: INITIAL_COMPILATION
 	@echo "Starting Initial Profiler"
 	@test -d $(SEU_GEN_DIR) || mkdir -p $(SEU_GEN_DIR)
-	@$(READELF) --wide -s binary/initialFreeRTOS.elf| grep " FUNC    " | awk '{print $$3 " " $$8 }' | sort -k 2 | uniq -u  > $(SEU_GEN_DIR)/fullMap.data
+	@$(READELF) --wide -s binary/initialFreeRTOS.elf | grep " FUNC    " | awk '{print $$3 " " $$8 }' | sort -k 2 | uniq -u  > $(SEU_GEN_DIR)/fullMap.data
 	@awk '/\*-{6}\*/{x++}{print >"$(SEU_GEN_DIR)/template_half_" x ".ld" }' x=0 $(INITIAL_LINKERSCRIPT) #Split Linker script in half
 	@$(PYTHON) $(SEU_DIR)/initial_profiler.py
 	@echo "initial Profiler Completed"

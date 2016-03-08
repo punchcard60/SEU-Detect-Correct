@@ -24,126 +24,120 @@ genDir = os.path.join('build', 'gen')
 headLinkScriptTemplate = os.path.join(genDir, 'template_half_0.ld')
 tailLinkScriptTemplate = os.path.join(genDir, 'template_half_1.ld')
 generatedLinkerScript = os.path.join(genDir, 'secondary_seu_link.ld')
-elfInput = os.path.join(genDir, 'readElf.data')
 functionMap = os.path.join(genDir, 'fullMap.data')
 
 functionEntryFormat =    '        *(.text.%s)\n'
 functionPadFormat =      '        . += %s;\n'
 blockFinishAndStartNew = '        . += {0};\n/****** Block {1} ******/\n'
 
-ALIGNTO = 4;
-BLOCKSIZE = 13312; # bytes. Exactly equals 6656 words or 3328 dwords.
-PAYLOADSIZE = 13286;
-BLOCKTRAILER = BLOCKSIZE - PAYLOADSIZE;
-PROFILE0_BLOCK = 0;
-PROFILE1_BLOCK = 3;
-PROFILE2_BLOCK = 4;
+ALIGNTO = 4
+BLOCKSIZE = 13312 # bytes. Exactly equals 6656 words or 3328 dwords.
+PAYLOADSIZE = 13286
 
-class FunctionDataObj:
-    def __init__(self, name, length, align):
+BLOCKTRAILER = BLOCKSIZE - PAYLOADSIZE
+PROFILE0_BLOCK = 0
+PROFILE1_BLOCK = 4
+PROFILE2_BLOCK = 9
+
+MIN_PROG_SIZE = PROFILE2_BLOCK * BLOCKSIZE
+
+class FunctionData:
+    def __init__(self, name, length):
         self.name = name
-        self.length = int(length)
-        self.align = int(align)
-        self.bytes = int(length) + int(align)
+        self.length = length
+        self.align = length % ALIGNTO
+        if self.align > 0:
+            self.align = ALIGNTO - self.align;
 
-functionDataArray = []
+        self.bytes = length + self.align
+        self.written = False
 
-regex = re.compile('[^a-zA-Z0-9_]')
+    def writeEntry(self, f):
+        f.write(functionEntryFormat % self.name)
+        if self.align > 0:
+            f.write(functionPadFormat % self.align)
+        self.written = True
 
-lineRegex = re.compile('08\S{6}\s')
+fnData = {}
 
-#Read function map file into an array
+# Read function map file into an array
 with open(functionMap, 'r') as functionFile:
     for line in functionFile:
-        functionData = line.split()
-        padding = int(functionData[0]) % ALIGNTO
-        if (padding > 0):
-            padding = ALIGNTO - padding;
-        functionDataArray.append(FunctionDataObj(functionData[1], functionData[0], padding))
+        length, name = line.split()[0:2]
+        fnData[name] = FunctionData(name, int(length))
 
 headData = ''
-with open (headLinkScriptTemplate, 'r') as headTemplateFile:
+with open(headLinkScriptTemplate, 'r') as headTemplateFile:
     for line in headTemplateFile:
         headData += line
 
 tailData = ''
-with open (tailLinkScriptTemplate, 'r') as tailTemplateFile:
+with open(tailLinkScriptTemplate, 'r') as tailTemplateFile:
     for line in tailTemplateFile:
         tailData += line
 
-def IndexOf(value, arr):
-    for index, item in enumerate(arr):
-        if item.name == value:
-            return index, item
-    return -1
+def getBiggestFunction(maxSize):
+    values = [i for i in fnData.values() if i.bytes <= maxSize]
+    if len(values) == 0:
+        return None
 
-def getBiggestFunction(maxSize, arr):
-    itemLen = -1
-    itemIndex = -1
-    for index, item in enumerate(arr):
-        if ((item.bytes > itemLen) and (item.bytes <= maxSize)):
-            itemIndex = index
-            itemLen = item.bytes
-    return itemIndex
+    return max(values, key=lambda i: i.bytes).name
 
-to_section = [1, 1, 2, 3, 4]
+def writeScript():
+    # Write linkerscript to file
 
-# Write linkerscript to file
-with open(generatedLinkerScript, 'w') as outputFile:
-    for line in headData: #write first half of linker script
-        outputFile.write('%s' % line)
+    with open(generatedLinkerScript, 'w') as outputFile:
+        for line in headData: #write first half of linker script
+            outputFile.write('%s' % line)
 
-    idx, s1 = IndexOf('section1_profile_func_enter', functionDataArray)
-    del functionDataArray[idx]
-    idx, s2 = IndexOf('section2_profile_func_enter', functionDataArray)
-    del functionDataArray[idx]
-    idx, s3 = IndexOf('section3_profile_func_enter', functionDataArray)
-    del functionDataArray[idx]
+        section1 = fnData.pop('section1_profile_func_enter')
+        section2 = fnData.pop('section2_profile_func_enter')
+        section3 = fnData.pop('section3_profile_func_enter')
+        blknum = 0
 
-    blknum = 0
-    outputFile.write(functionEntryFormat % s1.name)
-    if s1.align > 0:
-        outputFile.write(functionPadFormat % s1.align)
-    bytesAvailable = PAYLOADSIZE - 4 - s1.bytes # block[0] contains the block count which is 4 bytes long
+        section1.writeEntry(outputFile)
 
-    while len(functionDataArray) > 0:
-        idx = getBiggestFunction(bytesAvailable, functionDataArray)
-        if (idx < 0):			 # could not find a function that will fit
-            if (bytesAvailable == PAYLOADSIZE): # remaining functions are bigger than PAYLOADSIZE
-                for elem in functionDataArray:
-                    print('FUNCTION TOO BIG: {0} {1} {2}\n' .format(elem.length, elem.bytes, elem.name))
+        # block[0] contains the block count which is 4 bytes long
+        bytesAvailable = PAYLOADSIZE - 4 - section1.bytes
+
+        def writeFunction(data):
+            nonlocal bytesAvailable
+            data.writeEntry(outputFile)
+            bytesAvailable -= data.bytes
+
+        while len(fnData) > 0:
+            name = getBiggestFunction(bytesAvailable)
+            if name:
+                writeFunction(fnData.pop(name))
+                continue
+
+            # could not find a function that will fit
+            if bytesAvailable == PAYLOADSIZE: # remaining functions are bigger than PAYLOADSIZE
+                for elem in fnData.values():
+                    print('FUNCTION TOO BIG: {length} {bytes} {name}\n' .format(**elem))
                 raise Exception
 
             blknum += 1
             blktrailer = bytesAvailable + BLOCKTRAILER
-            outputFile.write(blockFinishAndStartNew .format(blktrailer, blknum))
+            outputFile.write(blockFinishAndStartNew.format(blktrailer, blknum))
             bytesAvailable = PAYLOADSIZE
 
-            if (blknum == 3):
-                outputFile.write(functionEntryFormat % s2.name)
-                if s2.align > 0:
-                    outputFile.write(functionPadFormat % s2.align)
-                bytesAvailable -= s2.bytes
-            elif (blknum == 4):
-                outputFile.write(functionEntryFormat % s3.name)
-                if s3.align > 0:
-                    outputFile.write(functionPadFormat % s3.align)
-                bytesAvailable -= s3.bytes
-        else:
-            fd = functionDataArray[idx]
-            outputFile.write(functionEntryFormat % fd.name)
-            if (fd.align > 0):
-                outputFile.write(functionPadFormat % fd.align)
-            bytesAvailable -= fd.bytes
-            del functionDataArray[idx]
+            if blknum == PROFILE1_BLOCK:
+                writeFunction(section2)
+            elif blknum == PROFILE2_BLOCK:
+                writeFunction(section3)
 
+        if not section2.written:
+            outputFile.write(functionPadFormat % (((PROFILE1_BLOCK - blknum) * BLOCKSIZE) - section2.bytes))
+            writeFunction(section2)
 
+        if not section3.written:
+            outputFile.write(functionPadFormat % (((PROFILE2_BLOCK - blknum) * BLOCKSIZE) - section3.bytes))
+            writeFunction(section3)
 
+        for line in tailData: # write second half of linkerscript
+            outputFile.write('%s' % line)
 
+    print('successfully generated linker script')
 
-
-
-    for line in tailData:    #write second half of linkerscript
-        outputFile.write('%s' % line)
-
-print ('successfully generated linker script')
+writeScript()
