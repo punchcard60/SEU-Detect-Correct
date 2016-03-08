@@ -1,20 +1,20 @@
-#include "stm32f4xx.h"
-#include "FreeRTOS.h"
-#include "task.h"
-#include "math.h"
-#include "stdio.h"
-#include "stm32f4xx_usart.h"
-
-void init_USART3(void);
+#include <stm32f4xx.h>
+#include <FreeRTOS.h>
+#include <task.h>
+#include <math.h>
+#include <stdio.h>
+#include <uart.h>
 
 void test_FPU_test(void* p);
 
 int main(void) {
   uint8_t ret;
 
-  SystemInit();
-  NVIC_PriorityGroupConfig(NVIC_PriorityGroup_4);
-  init_USART3();
+  /* Connect up printf() */
+  uart_init();
+
+  /* start up the SEU detect and correct functionality. */
+  seu_init();
 
   // Create a task
   ret = xTaskCreate(test_FPU_test, "FPU", configMINIMAL_STACK_SIZE, NULL, 1, NULL);

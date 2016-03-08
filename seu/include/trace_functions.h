@@ -4,6 +4,7 @@
 #include <string.h>
 #include <reed_solomon.h>
 #include <stm32f4xx_flash.h>
+#include <reboot.h>
 
 #ifndef NULL
 #define NULL ((void*)0)
@@ -29,23 +30,18 @@ typedef struct block {
 #define FUNCT2_FLASH_SECTION 3
 #define FUNCT3_FLASH_SECTION 4
 
-#define BLOCK_COUNT 	(K(896) / 13312) /* 68 */
 #define BLOCK_BASE		((block_t*)FLASH_BASE)
 #define BLOCK_START(b)	(&BLOCK_BASE[(b)])
 
-extern uint32_t crc_expire_times[BLOCK_COUNT];
+extern uint64_t crc_expire_times[BLOCK_COUNT];
 
-#define CRC_EXPIRE_TIME  42 /* how long between crc checks? */
+#define CRC_EXPIRE_TIME  10 /* In units of (system tick * 100). CRC_EXPIRE_TIME = 10 means we check CRC once a second */
 
-/* $$$ Replace this stub! */
-inline static uint32_t get_the_time() {
-	return 0;
-}
+void __attribute__((no_instrument_function)) section1_profile_func_enter(uint32_t block_number, uint32_t depth);
+void __attribute__((no_instrument_function)) section2_profile_func_enter(uint32_t block_number, uint32_t depth);
+void __attribute__((no_instrument_function)) section3_profile_func_enter(uint32_t block_number, uint32_t depth);
 
-static void __attribute__((no_instrument_function)) section1_profile_func_enter(uint32_t block_number);
-static void __attribute__((no_instrument_function)) section2_profile_func_enter(uint32_t block_number);
-static void __attribute__((no_instrument_function)) section3_profile_func_enter(uint32_t block_number);
-
+void seu_init(void);
 
 /***** Test if block[block_number] overlaps flash_section[section_number] */
 
@@ -78,7 +74,7 @@ inline static uint32_t INLINE_ATTRIBUTE ptr_to_flash_section(uint32_t* ptr) {
 
 /***** CRC function ***************************/
 
-inline static uint32_t INLINE_ATTRIBUTE crc_check(uint32_t block_number, uint32_t tm_now) {
+inline static uint32_t INLINE_ATTRIBUTE crc_check(uint32_t block_number, uint64_t tm_now) {
 	register uint32_t* ptr;
 	register uint32_t* crc_ptr;
 
@@ -145,8 +141,6 @@ inline static void INLINE_ATTRIBUTE flash_copy_from_work(int flash_section) {
 
 	FLASH_Lock();
 }
-
-/***** block fix functions ***************************/
 
 inline static void INLINE_ATTRIBUTE fix_block(uint32_t block_number) {
 	error_marker_t corrections[RS_MAX_CORRECTIONS];
