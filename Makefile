@@ -15,17 +15,15 @@ FREERTOS:=$(CURDIR)/FreeRTOS
 STARTUP:=$(CURDIR)/hardware
 REED_SOLOMON:=$(abspath $(CURDIR)/../Reed-Solomon-Packed)
 
-NUM_TEXT_SECTIONS = 4 #Number of .textX sections declared in linker script
-
-INCLUDE=-I$(CURDIR)/hardware
-INCLUDE+=-I$(FREERTOS)/include
-INCLUDE+=-I$(FREERTOS)/portable/GCC/ARM_CM4F
+INCLUDE+=-I$(CURDIR)/config
+INCLUDE+=-I$(CURDIR)/hardware
+INCLUDE+=-Iseu/include
+INCLUDE+=-I$(REED_SOLOMON)/include
 INCLUDE+=-I$(CURDIR)/lib/CMSIS/Device/ST/STM32F4xx/Include
 INCLUDE+=-I$(CURDIR)/lib/CMSIS/Include
 INCLUDE+=-I$(CURDIR)/lib/STM32F4xx_StdPeriph_Driver/inc
-INCLUDE+=-I$(CURDIR)/config
-INCLUDE+=-Iseu/include
-INCLUDE+=-I$(REED_SOLOMON)/include
+INCLUDE+=-I$(FREERTOS)/include
+INCLUDE+=-I$(FREERTOS)/portable/GCC/ARM_CM4F
 
 BUILD_DIR = $(CURDIR)/build
 BIN_DIR = $(CURDIR)/binary
@@ -35,16 +33,10 @@ SEU_GEN_DIR = $(BUILD_DIR)/gen
 
 ASRC=startup_stm32f40_41xxx.s
 
-#vpath %.c $(CURDIR)/lib/STM32F4xx_StdPeriph_Driver/src \
-#          $(CURDIR)/lib/syscall \
-#          $(CURDIR)/hardware \
-#          $(FREERTOS) \
-#          $(FREERTOS)/portable/MemMang \
-#          $(FREERTOS)/portable/GCC/ARM_CM4F
+#compiled without finstrument-function
+UNCHECKED_SRC := lib/CMSIS/src/system_stm32f4xx.c hardware/uart.c lib/syscall/syscall.c
 
-UNCHECKED_SRC := hardware/system_stm32f4xx.c hardware/uart.c lib/syscall/syscall.c#compiled without finstrument-function
 SRC := main.c
-
 
 # FreeRTOS sources
 SRC += $(FREERTOS)/event_groups.c \
@@ -83,23 +75,16 @@ SRC += $(RS_SRC)/alpha_to.c \
 CRC_SRCS = lib/CRC_Generator/crcmodel.c \
            lib/CRC_Generator/main.c
 
-CDEFS=-DUSE_STDPERIPH_DRIVER
-#CDEFS+=-DSTM32F4XX -DSTM32F40_41xxx
+CDEFS+=-DUSE_STDPERIPH_DRIVER
 CDEFS+=-DSTM32F40_41xxx
-CDEFS+= -D'HSE_VALUE=((uint32_t)24000000)'
-#CDEFS+=-D__FPU_PRESENT=1
-#CDEFS+=-D__FPU_USED=1
-#CDEFS+=-DARM_MATH_CM4
 
 MCU_FLAGS:=-mcpu=cortex-m4 -mthumb -mlittle-endian -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb-interwork
 COMMONFLAGS=-O$(OPTLVL) $(DBG) -Wall -ffunction-sections -fdata-sections
 CFLAGS=$(COMMONFLAGS) $(MCU_FLAGS) $(INCLUDE) $(CDEFS)
-#LDLIBS=$(TOOLCHAIN_ROOT)/arm-none-eabi/lib/armv7e-m/fpu/libc.a $(TOOLCHAIN_ROOT)/arm-none-eabi/lib/armv7e-m/fpu/libm.a
-#LDFLAGS=$(COMMONFLAGS) -fno-exceptions -nostartfiles $(MCU_FLAGS)
 LDLIBS=-lm
 LDFLAGS=$(COMMONFLAGS) -fno-exceptions $(MCU_FLAGS)
 
-SEUFLAG=-finstrument-functions
+#SEUFLAG=-finstrument-functions
 
 #INITIAL_LINKERSCRIPT=-Tseu/initial_seu_link.ld
 INITIAL_LINKERSCRIPT=$(REED_SOLOMON)/STM32F4xx_FLASH.ld
@@ -153,14 +138,14 @@ $(BUILD_DIR)/%.o: %.c
 	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
 
 UNCHECKED_OBJS: $(OBJ)
-	@$(CC) $(CFLAGS) hardware/system_stm32f4xx.c -c -o build/system_stm32f4xx.o
+	@$(CC) $(CFLAGS) lib/CMSIS/src/system_stm32f4xx.c -c -o build/system_stm32f4xx.o
 	@$(CC) $(CFLAGS) hardware/uart.c -c -o build/uart.o
 	@$(CC) $(CFLAGS) lib/syscall/syscall.c -c -o build/syscall.o
 	@$(CC) $(CFLAGS) $(TRACE_FILES) -c -o $(TRACE_OBJ)
 
 INITIAL_COMPILATION: UNCHECKED_OBJS $(RS_OBJS)
 	@echo "[AS] $(ASRC)"
-	@$(AS) -o $(ASRC:%.s=$(BUILD_DIR)/%.o) $(STARTUP)/$(ASRC)
+	@$(AS) -o $(ASRC:%.s=$(BUILD_DIR)/%.o) lib/CMSIS/src/$(ASRC)
 	@echo [LD] $(TARGET).elf
 	@test -d $(BIN_DIR) || mkdir -p $(BIN_DIR)
 	@$(CC) -o $(BIN_DIR)/initial$(TARGET).elf -T$(INITIAL_LINKERSCRIPT) $(LDFLAGS) $(OBJ) $(UNCHECKED_OBJ) $(RS_OBJS) $(TRACE_OBJ) $(ASRC:%.s=$(BUILD_DIR)/%.o) $(LDLIBS)

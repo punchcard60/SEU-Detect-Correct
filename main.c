@@ -13,6 +13,14 @@ int main(void) {
 
 	uart_init();
 
+int dly = 0;
+hang:
+	printf("UART Initialized!\n");
+	printf("%d	UART Initialized!\n", dly++);
+	printf("		UART Initialized!\n");
+	printf("			UART Initialized!\n");
+ goto hang;
+
   // Create a task
   ret = xTaskCreate(test_FPU_test, "FPU", configMINIMAL_STACK_SIZE, NULL, 1, NULL);
 
