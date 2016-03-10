@@ -19,9 +19,14 @@
 #include <timers.h>
 #include <stm32f4xx.h>
 #include <trace_functions.h>
+#include <stdio.h>
+#include <inttypes.h>
 
-uint64_t crc_expire_times[BLOCK_COUNT];
-uint64_t clock = 0;
+#define RCC_AHB1Periph_CRC               ((uint32_t)0x00001000)
+
+int64_t crc_expire_times[BLOCK_COUNT];
+int64_t clock = -1;
+uint32_t crc_enable = CRC_SIGNATURE;
 
 const uint32_t FlashSections[FLASH_SECTIONS + 1] = {
     FLASH_BASE,
@@ -39,40 +44,49 @@ const uint32_t FlashSections[FLASH_SECTIONS + 1] = {
 };
 
 TimerHandle_t  htimer;
-void seu_timer(TimerHandle_t pxTimer);
+void __attribute__((no_instrument_function)) seu_timer(TimerHandle_t pxTimer);
 
-void seu_init(void) {
+void __attribute__((no_instrument_function)) seu_init(void) {
+
 	htimer = xTimerCreate("SEU", 100, pdTRUE, 0, seu_timer);
 	xTimerStart(htimer, 0);
+	clock = 0;
+	crc_enable = ~CRC_SIGNATURE;
 }
 
-void seu_timer(TimerHandle_t pxTimer) {
+void __attribute__((no_instrument_function)) seu_timer(TimerHandle_t pxTimer) {
 	clock++;
 }
 
-void __cyg_profile_func_enter (void* this_func, void* caller) {
-	section1_profile_func_enter((uint32_t)caller - (uint32_t)BLOCK_BASE / sizeof(block_t), 0);
-}
-
 /**************************************************************************/
+
+void __cyg_profile_func_enter (void* this_func, void* caller) {
+	if (crc_enable ^ CRC_SIGNATURE) {
+		section1_profile_func_enter(((uint32_t)caller - (uint32_t)BLOCK_BASE) / sizeof(block_t), 0);
+	}
+}
 
 void __cyg_profile_func_exit(void *func, void *caller) {
     return;
 }
 
-/**************************************************************************/
+/**************************************************************************
+ *
+ *     SECTION 1   SECTION 1   SECTION 1   SECTION 1   SECTION 1   SECTION 1
+ *
+ **************************************************************************/
 
 void __attribute__((no_instrument_function)) section1_profile_func_enter(uint32_t block_number, uint32_t depth) {
-
+printf("section1_profile_func_enter(%"PRIu32", %"PRIu32")\n", block_number, depth);
 	depth++;
 
-	if (depth < 3 && crc_check(FUNCT1_BLOCK, clock) != 0)
+	if (depth < 3 && crc_check1(FUNCT1_BLOCK, clock) != 0)
 	{
 		/* If this section doesn't pass crc_check(), use the next section to fix this one. */
 		section2_profile_func_enter(FUNCT1_BLOCK, depth);
 	}
 
-	if (crc_check(block_number, clock) != 0)
+	if (crc_check1(block_number, clock) != 0)
 	{
 		/* Can't fix a block in the same physical flash section as this function */
 		if (data_block_is_in_flash_section(block_number, FUNCT1_FLASH_SECTION)) {
@@ -85,6 +99,7 @@ void __attribute__((no_instrument_function)) section1_profile_func_enter(uint32_
 }
 
 void __attribute__((no_instrument_function)) section1_fix_block(uint32_t block_number) {
+printf("section1_fix_block(%"PRIu32")\n", block_number);
 		if (data_block_is_in_flash_section(block_number, FUNCT1_FLASH_SECTION)) {
 			section2_fix_block(block_number);
 		}
@@ -93,19 +108,59 @@ void __attribute__((no_instrument_function)) section1_fix_block(uint32_t block_n
 		}
 }
 
-/**************************************************************************/
+uint32_t __attribute__((no_instrument_function)) crc_check1(uint32_t block_number, uint64_t tm_now) {
+printf("crc_check1(%"PRIu32", %"PRIu64")", block_number, tm_now);
+	register uint32_t* ptr;
+	register uint32_t* crc_ptr;
+	uint32_t rc;
+
+	if (crc_expire_times[block_number] > tm_now) {
+printf(" Not time yet.\n");
+		return 0;
+	}
+
+	RCC->AHB1ENR |= RCC_AHB1Periph_CRC; /* Enable CRC */
+
+	ptr = (uint32_t*)BLOCK_START(block_number);
+	crc_ptr = (uint32_t*)(((uint32_t)ptr) + sizeof(block_t) - sizeof(uint32_t));
+
+	while(ptr < crc_ptr)
+	{
+		CRC->DR = *ptr++;
+	}
+
+printf(" crc results %"PRIu32" ^ %"PRIu32"\n", CRC->DR, *crc_ptr);
+	if (CRC->DR ^ *crc_ptr) {
+		rc = 1;
+	}
+	else {
+		rc = 0;
+		crc_expire_times[block_number] = tm_now + CRC_EXPIRE_TIME;
+	}
+
+	RCC->AHB1ENR &= ~RCC_AHB1Periph_CRC; /* Disable CRC */
+
+	return rc;
+}
+
+/**************************************************************************
+ *
+ *     SECTION 2   SECTION 2   SECTION 2   SECTION 2   SECTION 2   SECTION 2
+ *
+ **************************************************************************/
 
 void __attribute__((no_instrument_function)) section2_profile_func_enter(uint32_t block_number, uint32_t depth) {
+printf("section2_profile_func_enter(%"PRIu32", %"PRIu32")\n", block_number, depth);
 
 	depth++;
 
-	if (depth < 3 && crc_check(FUNCT2_BLOCK, clock) != 0)
+	if (depth < 3 && crc_check2(FUNCT2_BLOCK, clock) != 0)
 	{
 		/* If this section doesn't pass crc_check(), use the next section to fix this one. */
 		section3_profile_func_enter(FUNCT2_BLOCK, ++depth);
 	}
 
-	if (crc_check(block_number, clock) != 0)
+	if (crc_check2(block_number, clock) != 0)
 	{
 		/* Can't fix a block in the same physical flash section as this function */
 		if (data_block_is_in_flash_section(block_number, FUNCT2_FLASH_SECTION)) {
@@ -118,6 +173,7 @@ void __attribute__((no_instrument_function)) section2_profile_func_enter(uint32_
 }
 
 void __attribute__((no_instrument_function)) section2_fix_block(uint32_t block_number) {
+printf("section2_fix_block(%"PRIu32")\n", block_number);
 		if (data_block_is_in_flash_section(block_number, FUNCT2_FLASH_SECTION)) {
 			section3_fix_block(block_number);
 		}
@@ -126,19 +182,60 @@ void __attribute__((no_instrument_function)) section2_fix_block(uint32_t block_n
 		}
 }
 
-/**************************************************************************/
+uint32_t __attribute__((no_instrument_function)) crc_check2(uint32_t block_number, uint64_t tm_now) {
+printf("crc_check2(%"PRIu32", %"PRIu64")", block_number, tm_now);
+	register uint32_t* ptr;
+	register uint32_t* crc_ptr;
+	uint32_t rc;
+
+	if (crc_expire_times[block_number] > tm_now) {
+printf(" Not time yet.\n");
+		return 0;
+	}
+
+	RCC->AHB1ENR |= RCC_AHB1Periph_CRC; /* Enable CRC */
+
+	ptr = (uint32_t*)BLOCK_START(block_number);
+	crc_ptr = (uint32_t*)(((uint32_t)ptr) + sizeof(block_t) - sizeof(uint32_t));
+
+	while(ptr < crc_ptr)
+	{
+		CRC->DR = *ptr++;
+	}
+
+printf(" crc results %"PRIu32" ^ %"PRIu32"\n", CRC->DR, *crc_ptr);
+	if (CRC->DR ^ *crc_ptr) {
+		rc = 1;
+	}
+	else {
+		rc = 0;
+		crc_expire_times[block_number] = tm_now + CRC_EXPIRE_TIME;
+	}
+
+	RCC->AHB1ENR &= ~RCC_AHB1Periph_CRC; /* Disable CRC */
+
+	return rc;
+}
+
+/**************************************************************************
+ *
+ *     SECTION 3   SECTION 3   SECTION 3   SECTION 3   SECTION 3   SECTION 3
+ *
+ **************************************************************************/
+
 
 void __attribute__((no_instrument_function)) section3_profile_func_enter(uint32_t block_number, uint32_t depth) {
+printf("section3_profile_func_enter(%"PRIu32", %"PRIu32")\n", block_number, depth);
 
 	depth++;
 
-	if (depth < 3 && crc_check(FUNCT3_BLOCK, clock) != 0)
+	if (depth < 3 && crc_check3(FUNCT3_BLOCK, clock) != 0)
 	{
 		/* If this section doesn't pass crc_check(), use the next section to fix this one. */
 		section1_profile_func_enter(FUNCT3_BLOCK, depth);
 	}
 
-	if (crc_check(block_number, clock) != 0)
+	if (crc_check3(block_number, clock) != 0)
 	{
 		/* Can't fix a block in the same physical flash section as this function */
 		if (data_block_is_in_flash_section(block_number, FUNCT3_FLASH_SECTION)) {
@@ -151,12 +248,48 @@ void __attribute__((no_instrument_function)) section3_profile_func_enter(uint32_
 }
 
 void __attribute__((no_instrument_function)) section3_fix_block(uint32_t block_number) {
+printf("section3_fix_block(%"PRIu32")\n", block_number);
 		if (data_block_is_in_flash_section(block_number, FUNCT3_FLASH_SECTION)) {
 			section1_fix_block(block_number);
 		}
 		else {
 			fix_block(block_number);
 		}
+}
+
+uint32_t __attribute__((no_instrument_function)) crc_check3(uint32_t block_number, uint64_t tm_now) {
+printf("crc_check3(%"PRIu32", %"PRIu64")", block_number, tm_now);
+	register uint32_t* ptr;
+	register uint32_t* crc_ptr;
+	uint32_t rc;
+
+	if (crc_expire_times[block_number] > tm_now) {
+printf(" Not time yet.\n");
+		return 0;
+	}
+
+	RCC->AHB1ENR |= RCC_AHB1Periph_CRC; /* Enable CRC */
+
+	ptr = (uint32_t*)BLOCK_START(block_number);
+	crc_ptr = (uint32_t*)(((uint32_t)ptr) + sizeof(block_t) - sizeof(uint32_t));
+
+	while(ptr < crc_ptr)
+	{
+		CRC->DR = *ptr++;
+	}
+
+printf(" crc results %"PRIu32" ^ %"PRIu32"\n", CRC->DR, *crc_ptr);
+	if (CRC->DR ^ *crc_ptr) {
+		rc = 1;
+	}
+	else {
+		rc = 0;
+		crc_expire_times[block_number] = tm_now + CRC_EXPIRE_TIME;
+	}
+
+	RCC->AHB1ENR &= ~RCC_AHB1Periph_CRC; /* Disable CRC */
+
+	return rc;
 }
 
 

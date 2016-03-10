@@ -18,8 +18,9 @@
 #ifndef _REBOOT_H
 #define _REBOOT_H
 
-#include <stm32f4xx_pwr.h>
+#include <stm32f4xx.h>
 #include <seu.h>
+#include <stdio.h>
 
 #ifndef INLINE_ATTRIBUTE
 #define INLINE_ATTRIBUTE __attribute__((no_instrument_function, always_inline))
@@ -41,9 +42,26 @@ void __attribute__((no_instrument_function)) section3_fix_block(uint32_t block_n
 inline static reboot_block_t* INLINE_ATTRIBUTE access_backup_domain_sram() {
 	/* Get access to the 4K of SRAM in the backup domain */
     RCC->APB1ENR |= RCC_APB1ENR_PWREN;
-	PWR_BackupAccessCmd(ENABLE);
+	PWR->CR = PWR_CR_DBP;
     RCC->AHB1ENR |= RCC_AHB1ENR_BKPSRAMEN;
 	return (reboot_block_t*)BKPSRAM_BASE;
+}
+
+inline static void INLINE_ATTRIBUTE reboot() {
+	/* Disable all interrupts */
+	RCC->CIR = 0x00000000;
+printf("\n*** REBOOT ***\n");
+
+for(;;);
+
+	/* Reboot */
+    __ASM volatile ("dsb");                                    /* Ensure all outstanding memory accesses included
+                                                                  buffered write are completed before reset */
+	SCB->AIRCR  = ((0x5FA << SCB_AIRCR_VECTKEY_Pos)      |
+				   (SCB->AIRCR & SCB_AIRCR_PRIGROUP_Msk) |
+				   SCB_AIRCR_SYSRESETREQ_Msk);                 /* Keep priority group unchanged */
+    __ASM volatile ("dsb");                                    /* Ensure completion of memory access */
+	while(1);                                                  /* wait until reset */
 }
 
 inline static void INLINE_ATTRIBUTE reboot_and_fix_block(uint32_t block_number, uint32_t fixer) {
@@ -54,45 +72,10 @@ inline static void INLINE_ATTRIBUTE reboot_and_fix_block(uint32_t block_number, 
 	backup_sram->signature = SEU_FIX_SIGNATURE;
 	backup_sram->block_number = (uint16_t)block_number;
 	backup_sram->fixer = (uint16_t)fixer;
-	NVIC_SystemReset();
+
+	reboot();
 }
 
-inline static void INLINE_ATTRIBUTE seu_start_check()
-{
-	seu_init();
-
-	reboot_block_t* backup_sram = access_backup_domain_sram();
-
-	if (backup_sram->signature != SEU_FIX_SIGNATURE) {
-		/* This is a power on reset */
-		backup_sram->signature = SEU_FIX_SIGNATURE;
-		backup_sram->block_number = (uint16_t)0xFFFF;
-		backup_sram->fixer = (uint16_t)0xFFFF;
-	}
-	else {
-		if (backup_sram->block_number < BLOCK_COUNT) {
-			/* we're in the middle of a fixup */
-			switch(backup_sram->fixer) {
-				case 1:
-					backup_sram->fixer = 2u;
-					section1_fix_block(backup_sram->block_number);
-					break;
-
-				case 2:
-					backup_sram->fixer = 3u;
-					section2_fix_block(backup_sram->block_number);
-					break;
-
-				default:
-					backup_sram->fixer = 1u;
-					section3_fix_block(backup_sram->block_number);
-			}
-			/* Must have been successful fixing the block */
-			backup_sram->block_number = (uint16_t)0xFFFF;
-			backup_sram->fixer = (uint16_t)0xFFFF;
-			NVIC_SystemReset();
-		}
-	}
-}
+extern void seu_start_check(void);
 
 #endif /* _REBOOT_H */

@@ -45,7 +45,7 @@
 
 /***************************************************************************/
 
-int _read_r (struct _reent *r, int file, char * ptr, int len)
+int __attribute__((no_instrument_function)) _read_r (struct _reent *r, int file, char * ptr, int len)
 {
   r = r;
   file = file;
@@ -58,7 +58,7 @@ int _read_r (struct _reent *r, int file, char * ptr, int len)
 
 /***************************************************************************/
 
-int _lseek_r (struct _reent *r, int file, int ptr, int dir)
+int __attribute__((no_instrument_function)) _lseek_r (struct _reent *r, int file, int ptr, int dir)
 {
   r = r;
   file = file;
@@ -70,7 +70,7 @@ int _lseek_r (struct _reent *r, int file, int ptr, int dir)
 
 /***************************************************************************/
 
-int _write_r (struct _reent *r, int file, char * ptr, int len)
+int __attribute__((no_instrument_function)) _write_r (struct _reent *r, int file, char * ptr, int len)
 {
   r = r;
   file = file;
@@ -94,7 +94,7 @@ int _write_r (struct _reent *r, int file, char * ptr, int len)
 
 /***************************************************************************/
 
-int _close_r (struct _reent *r, int file)
+int __attribute__((no_instrument_function)) _close_r (struct _reent *r, int file)
 {
   return 0;
 }
@@ -104,7 +104,7 @@ int _close_r (struct _reent *r, int file)
 /* Register name faking - works in collusion with the linker.  */
 register char * stack_ptr asm ("sp");
 
-caddr_t _sbrk_r (struct _reent *r, int incr)
+caddr_t __attribute__((no_instrument_function)) _sbrk_r (struct _reent *r, int incr)
 {
   extern char   end asm ("end"); /* Defined by the linker.  */
   static char * heap_end;
@@ -138,7 +138,7 @@ caddr_t _sbrk_r (struct _reent *r, int incr)
 
 /***************************************************************************/
 
-int _fstat_r (struct _reent *r, int file, struct stat * st)
+int __attribute__((no_instrument_function)) _fstat_r (struct _reent *r, int file, struct stat * st)
 {
   r = r;
   file = file;
@@ -150,7 +150,7 @@ int _fstat_r (struct _reent *r, int file, struct stat * st)
 
 /***************************************************************************/
 
-int _isatty_r(struct _reent *r, int fd)
+int __attribute__((no_instrument_function)) _isatty_r(struct _reent *r, int fd)
 {
   r = r;
   fd = fd;

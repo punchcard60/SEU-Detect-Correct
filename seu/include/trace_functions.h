@@ -18,12 +18,12 @@
 #ifndef _TRACE_FUNCTIONS_H
 #define _TRACE_FUNCTIONS_H
 
+#include <stm32f4xx.h>
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
 #include <reed_solomon.h>
 #include <decode_rs.h>
-#include <stm32f4xx_flash.h>
 #include <reboot.h>
 
 #ifndef NULL
@@ -53,13 +53,18 @@ typedef struct block {
 #define BLOCK_BASE		((block_t*)FLASH_BASE)
 #define BLOCK_START(b)	(&BLOCK_BASE[(b)])
 
-extern uint64_t crc_expire_times[BLOCK_COUNT];
-
+extern int64_t crc_expire_times[BLOCK_COUNT];
+extern uint32_t crc_enable;
+#define CRC_SIGNATURE 0xABCD
 #define CRC_EXPIRE_TIME  10 /* In units of (system tick * 100). CRC_EXPIRE_TIME = 10 means we check CRC once a second */
 
 void __attribute__((no_instrument_function)) section1_profile_func_enter(uint32_t block_number, uint32_t depth);
 void __attribute__((no_instrument_function)) section2_profile_func_enter(uint32_t block_number, uint32_t depth);
 void __attribute__((no_instrument_function)) section3_profile_func_enter(uint32_t block_number, uint32_t depth);
+
+uint32_t __attribute__((no_instrument_function)) crc_check1(uint32_t block_number, uint64_t tm_now);
+uint32_t __attribute__((no_instrument_function)) crc_check2(uint32_t block_number, uint64_t tm_now);
+uint32_t __attribute__((no_instrument_function)) crc_check3(uint32_t block_number, uint64_t tm_now);
 
 /***** Test if block[block_number] overlaps flash_section[section_number] */
 
@@ -90,79 +95,109 @@ inline static uint32_t INLINE_ATTRIBUTE ptr_to_flash_section(uint32_t* ptr) {
 	return 0xFFFFFFFF;
 }
 
-/***** CRC function ***************************/
+/***** Flash Copy ***************************/
 
-inline static uint32_t INLINE_ATTRIBUTE crc_check(uint32_t block_number, uint64_t tm_now) {
-	register uint32_t* ptr;
-	register uint32_t* crc_ptr;
-
-	if (crc_expire_times[block_number] > tm_now) {
-printf("CRC Check Time %"PRIu32" OK\n", block_number);
-		return 0;
-	}
-
-	CRC->CR = CRC_CR_RESET;
-
-	ptr = (uint32_t*)BLOCK_START(block_number);
-	crc_ptr = (uint32_t*)(((uint32_t)ptr) + sizeof(block_t) - sizeof(uint32_t));
-
-	while(ptr < crc_ptr)
-	{
-		CRC->DR = *ptr++;
-	}
-
-	if (CRC->DR ^ *crc_ptr) {
-		return 1;
-	}
-
-	crc_expire_times[block_number] = tm_now + CRC_EXPIRE_TIME;
-printf("CRC Check Compare %"PRIu32" OK\n", block_number);
-
-	return 0;
-}
+#define FLASH_WAIT_FOR_READY while((FLASH->SR & FLASH_FLAG_BSY) == FLASH_FLAG_BSY);
+#define FLASH_KEY1               ((uint32_t)0x45670123)
+#define FLASH_KEY2               ((uint32_t)0xCDEF89AB)
+#define FLASH_FLAG_BSY                 ((uint32_t)0x00010000)  /*!< FLASH Busy flag                           */
+#define FLASH_PSIZE_WORD           ((uint32_t)0x00000200)
+#define CR_PSIZE_MASK              ((uint32_t)0xFFFFFCFF)
+#define SECTOR_MASK               ((uint32_t)0xFFFFFF07)
 
 
 inline static void INLINE_ATTRIBUTE flash_copy_to_work(int flash_section, int count, error_marker_t** corrections){
 	uint32_t* src = (uint32_t*)FlashSections[flash_section];
 	uint32_t* src_limit = (uint32_t*)FlashSections[flash_section + 1];
-	uint32_t dest = (uint32_t)FlashSections[WORK_FLASH_SECTION];
+	uint32_t* dest = (uint32_t*)FlashSections[WORK_FLASH_SECTION];
 	int i = 0;
 
-	FLASH_Unlock();
-	FLASH_EraseSector((WORK_FLASH_SECTION << 3), VoltageRange_3);
+	if((FLASH->CR & FLASH_CR_LOCK) != RESET)
+	{
+	/* Authorize the FLASH Registers access */
+	FLASH->KEYR = FLASH_KEY1;
+	FLASH->KEYR = FLASH_KEY2;
+	}
+
+	FLASH_WAIT_FOR_READY;
+
+    /* if the previous operation is completed, proceed to erase the sector */
+    FLASH->CR &= CR_PSIZE_MASK;
+    FLASH->CR |= FLASH_PSIZE_WORD;
+    FLASH->CR &= SECTOR_MASK;
+    FLASH->CR |= FLASH_CR_SER | (flash_section << 3);
+    FLASH->CR |= FLASH_CR_STRT;
+
+	FLASH_WAIT_FOR_READY;
+
+    FLASH->CR &= CR_PSIZE_MASK;
+    FLASH->CR |= FLASH_PSIZE_WORD;
+    FLASH->CR |= FLASH_CR_PG;
+
+	FLASH_WAIT_FOR_READY;
 
 	while (src < src_limit && i < count) {
-		FLASH_ProgramWord(dest, (src == corrections[i]->pointer) ? corrections[i++]->corrected_dword : *src);
+    	*dest = (src == corrections[i]->pointer) ? corrections[i++]->corrected_dword : *src;
 		src++;
-		dest += sizeof(uint32_t);
+		dest++;
+		FLASH_WAIT_FOR_READY;
 	}
 
 	while (src < src_limit) {
-		FLASH_ProgramWord(dest, *src++);
+    	*(__IO uint32_t*)dest = *src;
+		src++;
 		dest += sizeof(uint32_t);
+		FLASH_WAIT_FOR_READY;
 	}
 
-	FLASH_Lock();
+    FLASH->CR &= (~FLASH_CR_PG);
+	FLASH->CR |= FLASH_CR_LOCK;
 }
+
 
 inline static void INLINE_ATTRIBUTE flash_copy_from_work(int flash_section) {
 	uint32_t* src = (uint32_t*)FlashSections[WORK_FLASH_SECTION];
-	uint32_t dest = FlashSections[flash_section];
-	uint32_t dest_limit = FlashSections[flash_section + 1];
+	uint32_t* dest = (uint32_t*)FlashSections[flash_section];
+	uint32_t* dest_limit = (uint32_t*)FlashSections[flash_section + 1];
 
-	FLASH_Unlock();
-	FLASH_EraseSector((uint32_t)flash_section << 3, VoltageRange_3);
-
-	while (dest < dest_limit) {
-		FLASH_ProgramWord(dest, *src);
-		src++;
-		dest += sizeof(uint32_t);
+	if((FLASH->CR & FLASH_CR_LOCK) != RESET)
+	{
+	/* Authorize the FLASH Registers access */
+	FLASH->KEYR = FLASH_KEY1;
+	FLASH->KEYR = FLASH_KEY2;
 	}
 
-	FLASH_Lock();
+	FLASH_WAIT_FOR_READY;
+
+    /* if the previous operation is completed, proceed to erase the sector */
+    FLASH->CR &= CR_PSIZE_MASK;
+    FLASH->CR |= FLASH_PSIZE_WORD;
+    FLASH->CR &= SECTOR_MASK;
+    FLASH->CR |= FLASH_CR_SER | (flash_section << 3);
+    FLASH->CR |= FLASH_CR_STRT;
+
+    /* Wait for last operation to be completed */
+	FLASH_WAIT_FOR_READY;
+
+    FLASH->CR &= CR_PSIZE_MASK;
+    FLASH->CR |= FLASH_PSIZE_WORD;
+    FLASH->CR |= FLASH_CR_PG;
+
+	FLASH_WAIT_FOR_READY;
+
+	while (dest < dest_limit) {
+    	*dest = *src;
+		src++;
+		dest++;
+		FLASH_WAIT_FOR_READY;
+	}
+
+    FLASH->CR &= (~FLASH_CR_PG);
+	FLASH->CR |= FLASH_CR_LOCK;
 }
 
 inline static void INLINE_ATTRIBUTE fix_block(uint32_t block_number) {
+printf("fix_block(%"PRIu32")\n", block_number);
 	error_marker_t corrections[RS_MAX_CORRECTIONS];
 	error_marker_t* sorted_corrections[RS_MAX_CORRECTIONS];
 	error_marker_t* ptr;

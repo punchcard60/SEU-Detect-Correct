@@ -14,6 +14,7 @@ DBG:=-g
 FREERTOS:=$(CURDIR)/FreeRTOS
 STARTUP:=$(CURDIR)/hardware
 REED_SOLOMON:=$(abspath $(CURDIR)/../Reed-Solomon-Packed)
+RS_SRC := $(REED_SOLOMON)/src
 
 INCLUDE+=-I$(CURDIR)/config
 INCLUDE+=-I$(CURDIR)/hardware
@@ -27,16 +28,24 @@ INCLUDE+=-I$(FREERTOS)/portable/GCC/ARM_CM4F
 
 BUILD_DIR = $(CURDIR)/build
 BIN_DIR = $(CURDIR)/binary
-SEU_DIR = seu
+SEU_DIR = $(CURDIR)/seu
 SEU_SRC_DIR = $(SEU_DIR)/src
 SEU_GEN_DIR = $(BUILD_DIR)/gen
 
-ASRC=startup_stm32f40_41xxx.s
+ASRC:=$(STARTUP)/startup_stm32f40_41xxx.s
 
 #compiled without finstrument-function
-UNCHECKED_SRC := lib/CMSIS/src/system_stm32f4xx.c hardware/uart.c lib/syscall/syscall.c
+SRC += $(SEU_SRC_DIR)/reboot.c \
+	   $(STARTUP)/handlers.c \
+	   $(STARTUP)/system_stm32f4xx.c \
+	   $(CURDIR)/hardware/uart.c \
+	   $(CURDIR)/lib/syscall/syscall.c \
+	   $(RS_SRC)/alpha_to.c \
+       $(RS_SRC)/genpoly.c \
+       $(RS_SRC)/index_of.c \
+	   $(SEU_SRC_DIR)/trace_functions.c
 
-SRC := main.c
+SRC += main.c
 
 # FreeRTOS sources
 SRC += $(FREERTOS)/event_groups.c \
@@ -47,51 +56,25 @@ SRC += $(FREERTOS)/event_groups.c \
        $(FREERTOS)/portable/GCC/ARM_CM4F/port.c \
        $(FREERTOS)/portable/MemMang/heap_4.c
 
-# StdPeriph driver sources
-STDPERIPH_SRC := $(CURDIR)/lib/STM32F4xx_StdPeriph_Driver/src
-SRC += $(STDPERIPH_SRC)/stm32f4xx_syscfg.c \
-       $(STDPERIPH_SRC)/misc.c \
-       $(STDPERIPH_SRC)/stm32f4xx_adc.c \
-       $(STDPERIPH_SRC)/stm32f4xx_dac.c \
-       $(STDPERIPH_SRC)/stm32f4xx_dma.c \
-       $(STDPERIPH_SRC)/stm32f4xx_exti.c \
-       $(STDPERIPH_SRC)/stm32f4xx_flash.c \
-       $(STDPERIPH_SRC)/stm32f4xx_gpio.c \
-       $(STDPERIPH_SRC)/stm32f4xx_i2c.c \
-       $(STDPERIPH_SRC)/stm32f4xx_pwr.c \
-       $(STDPERIPH_SRC)/stm32f4xx_rcc.c \
-       $(STDPERIPH_SRC)/stm32f4xx_spi.c \
-       $(STDPERIPH_SRC)/stm32f4xx_tim.c \
-       $(STDPERIPH_SRC)/stm32f4xx_usart.c \
-       $(STDPERIPH_SRC)/stm32f4xx_rng.c
-
-# Reed Solomon sources
-RS_SRC := $(REED_SOLOMON)/src
-SRC += $(RS_SRC)/alpha_to.c \
-       $(RS_SRC)/genpoly.c \
-       $(RS_SRC)/index_of.c
-
 # CRC32 sources
-CRC_SRCS = lib/CRC_Generator/crcmodel.c \
-           lib/CRC_Generator/main.c
+CRC_SRCS := $(RS_SRC)/alpha_to.c \
+       	    $(RS_SRC)/genpoly.c \
+       	    $(RS_SRC)/index_of.c \
+		    lib/CRC_Generator/crcmodel.c \
+            lib/CRC_Generator/main.c
 
-CDEFS+=-DUSE_STDPERIPH_DRIVER
-CDEFS+=-DSTM32F40_41xxx
+AOBJ:=$(addsuffix .o, $(addprefix $(BUILD_DIR)/, $(basename $(notdir $(ASRC)))))
+OBJ:=$(addsuffix .o, $(addprefix $(BUILD_DIR)/, $(basename $(notdir $(SRC)))))
 
 MCU_FLAGS:=-mcpu=cortex-m4 -mthumb -mlittle-endian -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb-interwork
 COMMONFLAGS=-O$(OPTLVL) $(DBG) -Wall -ffunction-sections -fdata-sections
-CFLAGS=$(COMMONFLAGS) $(MCU_FLAGS) $(INCLUDE) $(CDEFS)
+CFLAGS=$(COMMONFLAGS) $(MCU_FLAGS) $(INCLUDE) -DSTM32F40_41xxx
 LDLIBS=-lm
-LDFLAGS=$(COMMONFLAGS) -fno-exceptions $(MCU_FLAGS)
+LDFLAGS=$(COMMONFLAGS) $(MCU_FLAGS) -fno-exceptions
+SEUFLAG=-finstrument-functions
 
-#SEUFLAG=-finstrument-functions
-
-#INITIAL_LINKERSCRIPT=-Tseu/initial_seu_link.ld
 INITIAL_LINKERSCRIPT=$(REED_SOLOMON)/STM32F4xx_FLASH.ld
 SECONDARY_LINKERSCRIPT=-Tbuild/gen/secondary_seu_link.ld
-
-TRACE_FILES:=$(SEU_SRC_DIR)/trace_functions.c
-TRACE_OBJ = build/trace_functions.o
 
 # don't count on having the tools in the PATH...
 CC := $(TOOLCHAIN_BIN)/$(TOOLCHAIN_PREFIX)-gcc
@@ -106,49 +89,93 @@ GCC=gcc #Standard Desktop GCC
 
 PYTHON = python3
 
-OBJ = $(SRC:%.c=$(BUILD_DIR)/%.o)
-UNCHECKED_OBJ := $(BUILD_DIR)/system_stm32f4xx.o $(BUILD_DIR)/uart.o $(BUILD_DIR)/syscall.o
-RS_SRCS := $(RS_SRC)/alpha_to.c $(RS_SRC)/index_of.c $(RS_SRC)/genpoly.c
-#RS_OBJS := $(RS_SRCS:%.c=$(BUILD_DIR)/%.o)
+TO_OBJ=$(addsuffix .o, $(addprefix $(BUILD_DIR)/, $(basename $(notdir $(1)))))
+
+.PHONY: all utils clean
 
 all: utils SECONDARY_PROFILER
 
-.PHONY: utils
-
 utils:
 	@echo [CC] crcGenerator.c
-	@test -d $(BUILD_DIR) || mkdir -p $(BUILD_DIR)
-	@$(GCC) $(INCLUDE) -g $(CRC_SRCS) $(RS_SRCS) -o $(BUILD_DIR)/crcGenerator
+	@$(GCC) $(INCLUDE) -g $(CRC_SRCS) -o $(BUILD_DIR)/crcGenerator
 
-$(BUILD_DIR)/alpha_to.o: $(RS_SRC)/alpha_to.c $(REED_SOLOMON)/include/*
+$(call TO_OBJ,$(ASRC)): $(ASRC)
+	@echo [AS] $(notdir $<)
+	@$(AS) -o $@ $^
+
+$(call TO_OBJ,$(STARTUP)/handlers.c): $(STARTUP)/handlers.c
 	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $< -c -o $@
-
-$(BUILD_DIR)/index_of.o: $(RS_SRC)/index_of.c $(REED_SOLOMON)/include/*
-	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $< -c -o $@
-
-$(BUILD_DIR)/genpoly.o: $(RS_SRC)/genpoly.c $(REED_SOLOMON)/include/*
-	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $< -c -o $@
-
-$(BUILD_DIR)/%.o: %.c
-	@echo [CC] $<
-	@test -d $(dir $@) || mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
 
-UNCHECKED_OBJS: $(OBJ)
-	@$(CC) $(CFLAGS) lib/CMSIS/src/system_stm32f4xx.c -c -o build/system_stm32f4xx.o
-	@$(CC) $(CFLAGS) hardware/uart.c -c -o build/uart.o
-	@$(CC) $(CFLAGS) lib/syscall/syscall.c -c -o build/syscall.o
-	@$(CC) $(CFLAGS) $(TRACE_FILES) -c -o $(TRACE_OBJ)
+$(call TO_OBJ,$(SEU_SRC_DIR)/reboot.c): $(SEU_SRC_DIR)/reboot.c
+	@echo [CC] $(notdir $<)
+	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
 
-INITIAL_COMPILATION: UNCHECKED_OBJS $(RS_OBJS)
-	@echo "[AS] $(ASRC)"
-	@$(AS) -o $(ASRC:%.s=$(BUILD_DIR)/%.o) lib/CMSIS/src/$(ASRC)
+$(call TO_OBJ,$(STARTUP)/system_stm32f4xx.c): $(STARTUP)/system_stm32f4xx.c
+	@echo [CC] $(notdir $<)
+	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+
+$(call TO_OBJ,$(CURDIR)/hardware/uart.c): $(CURDIR)/hardware/uart.c
+	@echo [CC] $(notdir $<)
+	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+
+$(call TO_OBJ,$(CURDIR)/lib/syscall/syscall.c): $(CURDIR)/lib/syscall/syscall.c
+	@echo [CC] $(notdir $<)
+	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+
+$(call TO_OBJ,$(RS_SRC)/alpha_to.c): $(RS_SRC)/alpha_to.c
+	@echo [CC] $(notdir $<)
+	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+
+$(call TO_OBJ,$(RS_SRC)/genpoly.c): $(RS_SRC)/genpoly.c
+	@echo [CC] $(notdir $<)
+	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+
+$(call TO_OBJ,$(RS_SRC)/index_of.c): $(RS_SRC)/index_of.c
+	@echo [CC] $(notdir $<)
+	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+
+$(call TO_OBJ,$(SEU_SRC_DIR)/trace_functions.c): $(SEU_SRC_DIR)/trace_functions.c
+	@echo [CC] $(notdir $<)
+	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+
+$(call TO_OBJ,main.c): main.c
+	@echo [CC] $(notdir $<)
+	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+
+$(call TO_OBJ,$(FREERTOS)/event_groups.c): $(FREERTOS)/event_groups.c
+	@echo [CC] $(notdir $<)
+	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+
+$(call TO_OBJ,$(FREERTOS)/list.c): $(FREERTOS)/list.c
+	@echo [CC] $(notdir $<)
+	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+
+$(call TO_OBJ,$(FREERTOS)/queue.c): $(FREERTOS)/queue.c
+	@echo [CC] $(notdir $<)
+	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+
+$(call TO_OBJ,$(FREERTOS)/tasks.c): $(FREERTOS)/tasks.c
+	@echo [CC] $(notdir $<)
+	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+
+$(call TO_OBJ,$(FREERTOS)/timers.c): $(FREERTOS)/timers.c
+	@echo [CC] $(notdir $<)
+	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+
+$(call TO_OBJ,$(FREERTOS)/portable/GCC/ARM_CM4F/port.c): $(FREERTOS)/portable/GCC/ARM_CM4F/port.c
+	@echo [CC] $(notdir $<)
+	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+
+$(call TO_OBJ,$(FREERTOS)/portable/MemMang/heap_4.c): $(FREERTOS)/portable/MemMang/heap_4.c
+	@echo [CC] $(notdir $<)
+	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+
+
+INITIAL_COMPILATION: $(AOBJ) $(OBJ)
 	@echo [LD] $(TARGET).elf
 	@test -d $(BIN_DIR) || mkdir -p $(BIN_DIR)
-	@$(CC) -o $(BIN_DIR)/initial$(TARGET).elf -T$(INITIAL_LINKERSCRIPT) $(LDFLAGS) $(OBJ) $(UNCHECKED_OBJ) $(RS_OBJS) $(TRACE_OBJ) $(ASRC:%.s=$(BUILD_DIR)/%.o) $(LDLIBS)
+	@$(CC) -o $(BIN_DIR)/initial$(TARGET).elf -T$(INITIAL_LINKERSCRIPT) $(LDFLAGS) $(AOBJ) $(OBJ) $(LDLIBS)
 
 INITIAL_PROFILER: INITIAL_COMPILATION
 	@echo "Starting Initial Profiler"
@@ -160,7 +187,7 @@ INITIAL_PROFILER: INITIAL_COMPILATION
 
 SECONDARY_COMPILATION: INITIAL_PROFILER
 	@echo "Starting Secondary Complilation"
-	@$(CC) -Wl,-Map,$(TARGET).map -o $(BIN_DIR)/final$(TARGET).elf $(SECONDARY_LINKERSCRIPT) $(LDFLAGS) $(OBJ) $(UNCHECKED_OBJ) $(RS_OBJS) $(TRACE_OBJ) $(HEADER_OBJ) $(ASRC:%.s=$(BUILD_DIR)/%.o) $(LDLIBS)
+	@$(CC) -Wl,-Map,$(TARGET).map -o $(BIN_DIR)/final$(TARGET).elf $(SECONDARY_LINKERSCRIPT) $(LDFLAGS) $(AOBJ) $(OBJ) $(LDLIBS)
 	@echo "Secondary Complilation Completed"
 
 SECONDARY_PROFILER: SECONDARY_COMPILATION

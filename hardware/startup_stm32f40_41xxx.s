@@ -106,6 +106,9 @@ CallSystemInit:
 /* Call static constructors */
 CallLibcInit:
     bl __libc_init_array
+/* Init SEU and see if we're in the middle of a fixup */
+CallSeuStartCheck:
+	bl seu_start_check
 /* Call the application's entry point.*/
 CallMain:
   bl  main
