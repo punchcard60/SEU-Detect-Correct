@@ -229,10 +229,12 @@ printf("UART init complete\n");
 }
 
 void __attribute__((no_instrument_function)) uart_putc(char c) {
-	if (USART6->CR1 & USART_CR1_UE) {
-		while ((USART6->SR & USART_FLAG_TXE) == 0) {
+	if ( c > 0) {
+		if (USART6->CR1 & USART_CR1_UE) {
+			while ((USART6->SR & USART_FLAG_TXE) == 0) {
+			}
+			USART6->DR = (uint16_t)(c);
 		}
-		USART6->DR = (uint16_t)(c);
 	}
 }
 

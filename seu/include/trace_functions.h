@@ -18,6 +18,8 @@
 #ifndef _TRACE_FUNCTIONS_H
 #define _TRACE_FUNCTIONS_H
 
+#include <FreeRTOS.h>
+#include <timers.h>
 #include <stm32f4xx.h>
 #include <stdio.h>
 #include <string.h>
@@ -29,6 +31,8 @@
 #ifndef NULL
 #define NULL ((void*)0)
 #endif
+
+extern void __attribute__((no_instrument_function)) seu_timer(TimerHandle_t pxTimer);
 
 /***** Flash physical description ***************************/
 
@@ -58,13 +62,16 @@ extern uint32_t crc_enable;
 #define CRC_SIGNATURE 0xABCD
 #define CRC_EXPIRE_TIME  10 /* In units of (system tick * 100). CRC_EXPIRE_TIME = 10 means we check CRC once a second */
 
-void __attribute__((no_instrument_function)) section1_profile_func_enter(uint32_t block_number, uint32_t depth);
-void __attribute__((no_instrument_function)) section2_profile_func_enter(uint32_t block_number, uint32_t depth);
-void __attribute__((no_instrument_function)) section3_profile_func_enter(uint32_t block_number, uint32_t depth);
+extern void __attribute__((no_instrument_function)) __cyg_profile_func_enter (void* this_func, void* caller);
+extern void __attribute__((no_instrument_function)) __cyg_profile_func_exit (void* this_func, void* caller);
 
-uint32_t __attribute__((no_instrument_function)) crc_check1(uint32_t block_number, uint64_t tm_now);
-uint32_t __attribute__((no_instrument_function)) crc_check2(uint32_t block_number, uint64_t tm_now);
-uint32_t __attribute__((no_instrument_function)) crc_check3(uint32_t block_number, uint64_t tm_now);
+extern void __attribute__((no_instrument_function)) section1_profile_func_enter(uint32_t block_number, uint32_t depth);
+extern void __attribute__((no_instrument_function)) section2_profile_func_enter(uint32_t block_number, uint32_t depth);
+extern void __attribute__((no_instrument_function)) section3_profile_func_enter(uint32_t block_number, uint32_t depth);
+
+extern uint32_t __attribute__((no_instrument_function)) crc_check1(uint32_t block_number, uint64_t tm_now);
+extern uint32_t __attribute__((no_instrument_function)) crc_check2(uint32_t block_number, uint64_t tm_now);
+extern uint32_t __attribute__((no_instrument_function)) crc_check3(uint32_t block_number, uint64_t tm_now);
 
 /***** Test if block[block_number] overlaps flash_section[section_number] */
 
@@ -111,7 +118,7 @@ inline static void INLINE_ATTRIBUTE flash_copy_to_work(int flash_section, int co
 	uint32_t* src_limit = (uint32_t*)FlashSections[flash_section + 1];
 	uint32_t* dest = (uint32_t*)FlashSections[WORK_FLASH_SECTION];
 	int i = 0;
-
+printf("flash_copy_to_work(%d)\n", flash_section);
 	if((FLASH->CR & FLASH_CR_LOCK) != RESET)
 	{
 	/* Authorize the FLASH Registers access */
@@ -159,6 +166,7 @@ inline static void INLINE_ATTRIBUTE flash_copy_from_work(int flash_section) {
 	uint32_t* src = (uint32_t*)FlashSections[WORK_FLASH_SECTION];
 	uint32_t* dest = (uint32_t*)FlashSections[flash_section];
 	uint32_t* dest_limit = (uint32_t*)FlashSections[flash_section + 1];
+printf("flash_copy_from_work(%d)\n", flash_section);
 
 	if((FLASH->CR & FLASH_CR_LOCK) != RESET)
 	{

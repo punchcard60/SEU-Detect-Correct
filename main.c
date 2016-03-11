@@ -1,27 +1,30 @@
 #include <stm32f4xx.h>
 #include <FreeRTOS.h>
 #include <task.h>
-#include <math.h>
+//#include <math.h>
 #include <stdio.h>
+#include <inttypes.h>
+
 
 void test_FPU_test(void* p);
+
+TaskHandle_t pvCreatedTask;
 
 int main(void) {
   uint8_t ret;
 
-// int dly = 0;
-// hang:
-// 	printf("UART Initialized!\n");
-// 	printf("%d	UART Initialized!\n", dly++);
-// 	printf("		UART Initialized!\n");
-// 	printf("			UART Initialized!\n");
-//  goto hang;
+	NVIC_SetPriorityGrouping( 0 );
 
-  // Create a task
-  ret = xTaskCreate(test_FPU_test, "FPU", configMINIMAL_STACK_SIZE, NULL, 1, NULL);
+    printf("\n*** main: System Started! ***\n\n");
 
+/*
+ * Create a new task and add it to the list of tasks that are ready to run.
+ */
+
+  ret = xTaskCreate(test_FPU_test, "FPU", configMINIMAL_STACK_SIZE, NULL, 1, &pvCreatedTask);
+    printf((ret == pdPASS) ? "FPU task created\n" : "FPU task create failed\n");
   if (ret == pdTRUE) {
-    printf("System Started!\n");
+    printf("Starting Scheduler clk = %"PRIu32"\n", SystemCoreClock);
     vTaskStartScheduler();  // should never return
   } else {
     printf("System Error!\n");
@@ -32,7 +35,11 @@ int main(void) {
   for (;;);
 }
 
-void vApplicationTickHook(void) {
+extern uint64_t clock;
+
+void __attribute__((no_instrument_function)) vApplicationTickHook(void) {
+printf("tock\n");
+	clock++;
 }
 
 /* vApplicationMallocFailedHook() will only be called if
@@ -73,13 +80,10 @@ void vApplicationStackOverflowHook(xTaskHandle pxTask, signed char *pcTaskName) 
 }
 
 void test_FPU_test(void* p) {
-  float ff = 1.0f;
+
   for (;;) {
   	printf("FPU test.\n");
-    float s = sinf(ff);
-    ff += s;
-    // TODO some other test
-    vTaskDelay(2000);
+    vTaskDelay(1000);
   }
   vTaskDelete(NULL);
 }

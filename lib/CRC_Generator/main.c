@@ -16,6 +16,7 @@
  */
 
 #include <stdio.h>
+#include <inttypes.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
@@ -65,16 +66,17 @@ int main(int argc, char** argv) {
         fread(inputData, sizeof(char), inputFileLen, inputFile);
     }
 
-    uint32_t offset = strtol(argv[2], NULL, 16);
-	uint32_t block_offset = offset - *((uint32_t*)(inputData + offset));
-    block_t* blocks = (block_t*)(inputData + block_offset);
-    uint32_t blockCount = *((uint32_t*)(inputData + offset + 4)); //pointer to symbol defined in Linker Script
+    uint32_t text_start_offs = strtol(argv[2], NULL, 16);
+	uint32_t block_start_offset = text_start_offs - *((uint32_t*)(inputData + text_start_offs));
+    block_t* blocks = (block_t*)(inputData + block_start_offset);
+    uint32_t blockCount = *((uint32_t*)(inputData + text_start_offs + 4)); //pointer to symbol defined in Linker Script
 
     int idx, numWords;
 	numWords = (sizeof(block_t) - sizeof(uint32_t)) / sizeof(uint32_t);
     for (idx = 0; idx < blockCount; idx++) {
         encode_rs((word_t*) &blocks[idx]);
         blocks[idx].crc = CRC_CalcBlockCRC((uint32_t*)&blocks[idx], numWords);
+		printf("%d   %"PRIu32"\n", idx, blocks[idx].crc);
 	}
 
     //Write modified binary to new file

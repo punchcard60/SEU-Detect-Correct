@@ -18,6 +18,6 @@
 #ifndef _SEU_H
 #define _SEU_H
 
-void seu_init(void);
+void __attribute__((no_instrument_function)) seu_init(void);
 
 #endif /* _SEU_H */

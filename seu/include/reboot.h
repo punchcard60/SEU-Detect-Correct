@@ -52,8 +52,6 @@ inline static void INLINE_ATTRIBUTE reboot() {
 	RCC->CIR = 0x00000000;
 printf("\n*** REBOOT ***\n");
 
-for(;;);
-
 	/* Reboot */
     __ASM volatile ("dsb");                                    /* Ensure all outstanding memory accesses included
                                                                   buffered write are completed before reset */
@@ -76,6 +74,6 @@ inline static void INLINE_ATTRIBUTE reboot_and_fix_block(uint32_t block_number, 
 	reboot();
 }
 
-extern void seu_start_check(void);
+extern void __attribute__((no_instrument_function)) seu_start_check(void);
 
 #endif /* _REBOOT_H */

@@ -10,18 +10,25 @@ void __attribute__((no_instrument_function)) seu_start_check(void)
 
 	uart_init();
 
-	reboot_block_t* backup_sram = access_backup_domain_sram();
+printf("accessing backup SRAM");
+
+	/* Get access to the 4K of SRAM in the backup domain */
+    RCC->APB1ENR |= RCC_APB1ENR_PWREN;
+	PWR->CR = PWR_CR_DBP;
+    RCC->AHB1ENR |= RCC_AHB1ENR_BKPSRAMEN;
+	reboot_block_t* backup_sram = (reboot_block_t*)BKPSRAM_BASE;
+printf(" ok");
 
 	if (backup_sram->signature != SEU_FIX_SIGNATURE) {
 		/* This is a power on reset */
-printf("New Signature\n");
+printf("   New Signature\n");
 		backup_sram->signature = SEU_FIX_SIGNATURE;
 		backup_sram->block_number = (uint16_t)0xFFFF;
 		backup_sram->fixer = (uint16_t)0xFFFF;
 	}
 	else {
 		if (backup_sram->block_number < BLOCK_COUNT) {
-printf("Fix needed in block %d\n", backup_sram->block_number);
+printf("   Fix needed in block %d\n", backup_sram->block_number);
 			/* we're in the middle of a fixup */
 			switch(backup_sram->fixer) {
 				case 1:
@@ -44,6 +51,9 @@ printf("Fix needed in block %d\n", backup_sram->block_number);
 			reboot();
 		}
 	}
+
+printf("Turn on the clock tick\n");
 	seu_init(); /* Kicks off a timer to update the expiration clock */
+printf("Startup check complete\n");
 }
 

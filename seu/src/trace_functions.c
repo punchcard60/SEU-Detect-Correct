@@ -44,29 +44,37 @@ const uint32_t FlashSections[FLASH_SECTIONS + 1] = {
 };
 
 TimerHandle_t  htimer;
-void __attribute__((no_instrument_function)) seu_timer(TimerHandle_t pxTimer);
 
 void __attribute__((no_instrument_function)) seu_init(void) {
-
-	htimer = xTimerCreate("SEU", 100, pdTRUE, 0, seu_timer);
+printf("seu_init()\n");
+	htimer = xTimerCreate("SEU", 10, pdTRUE, NULL, seu_timer);
+printf("timer created\n");
 	xTimerStart(htimer, 0);
-	clock = 0;
+printf("timer started\n");
 	crc_enable = ~CRC_SIGNATURE;
+	clock = 1;
+printf("seu_init() exit\n");
 }
 
 void __attribute__((no_instrument_function)) seu_timer(TimerHandle_t pxTimer) {
+printf("tick\n");
 	clock++;
 }
 
 /**************************************************************************/
 
-void __cyg_profile_func_enter (void* this_func, void* caller) {
+void __attribute__((no_instrument_function)) __cyg_profile_func_enter(void* this_func, void* caller) {
+printf("__cyg_profile_func_enter(%08lX, %08lX)\n", (uint32_t)this_func, (uint32_t)caller);
 	if (crc_enable ^ CRC_SIGNATURE) {
-		section1_profile_func_enter(((uint32_t)caller - (uint32_t)BLOCK_BASE) / sizeof(block_t), 0);
+		uint32_t blk_num = ((uint32_t)caller - (uint32_t)BLOCK_BASE) / sizeof(block_t);
+		if (blk_num >= BLOCK_COUNT) {
+			for(;;);
+		}
+		section1_profile_func_enter(blk_num, 0);
 	}
 }
 
-void __cyg_profile_func_exit(void *func, void *caller) {
+void __attribute__((no_instrument_function)) __cyg_profile_func_exit(void *func, void *caller) {
     return;
 }
 
@@ -105,6 +113,7 @@ printf("section1_fix_block(%"PRIu32")\n", block_number);
 		}
 		else {
 			fix_block(block_number);
+			crc_check1(block_number, clock);
 		}
 }
 
@@ -119,17 +128,21 @@ printf(" Not time yet.\n");
 		return 0;
 	}
 
+printf(" In progress");
 	RCC->AHB1ENR |= RCC_AHB1Periph_CRC; /* Enable CRC */
 
+	CRC->CR = CRC_CR_RESET; /* Reset CRC unit */
+
 	ptr = (uint32_t*)BLOCK_START(block_number);
-	crc_ptr = (uint32_t*)(((uint32_t)ptr) + sizeof(block_t) - sizeof(uint32_t));
+	crc_ptr = (uint32_t*)BLOCK_START(block_number + 1);
+	crc_ptr--;
 
 	while(ptr < crc_ptr)
 	{
 		CRC->DR = *ptr++;
 	}
 
-printf(" crc results %"PRIu32" ^ %"PRIu32"\n", CRC->DR, *crc_ptr);
+printf(" results %"PRIu32" ^ %"PRIu32"\n", CRC->DR, *crc_ptr);
 	if (CRC->DR ^ *crc_ptr) {
 		rc = 1;
 	}
@@ -179,6 +192,7 @@ printf("section2_fix_block(%"PRIu32")\n", block_number);
 		}
 		else {
 			fix_block(block_number);
+			crc_check2(block_number, clock);
 		}
 }
 
@@ -195,8 +209,11 @@ printf(" Not time yet.\n");
 
 	RCC->AHB1ENR |= RCC_AHB1Periph_CRC; /* Enable CRC */
 
+	CRC->CR = CRC_CR_RESET; /* Reset CRC unit */
+
 	ptr = (uint32_t*)BLOCK_START(block_number);
-	crc_ptr = (uint32_t*)(((uint32_t)ptr) + sizeof(block_t) - sizeof(uint32_t));
+	crc_ptr = (uint32_t*)BLOCK_START(block_number + 1);
+	crc_ptr--;
 
 	while(ptr < crc_ptr)
 	{
@@ -253,6 +270,7 @@ printf("section3_fix_block(%"PRIu32")\n", block_number);
 			section1_fix_block(block_number);
 		}
 		else {
+			crc_check3(block_number, clock);
 			fix_block(block_number);
 		}
 }
@@ -270,8 +288,11 @@ printf(" Not time yet.\n");
 
 	RCC->AHB1ENR |= RCC_AHB1Periph_CRC; /* Enable CRC */
 
+	CRC->CR = CRC_CR_RESET; /* Reset CRC unit */
+
 	ptr = (uint32_t*)BLOCK_START(block_number);
-	crc_ptr = (uint32_t*)(((uint32_t)ptr) + sizeof(block_t) - sizeof(uint32_t));
+	crc_ptr = (uint32_t*)BLOCK_START(block_number + 1);
+	crc_ptr--;
 
 	while(ptr < crc_ptr)
 	{

@@ -78,17 +78,31 @@ int __attribute__((no_instrument_function)) _write_r (struct _reent *r, int file
 
   int index;
 
-  /* Output string by UART */
-  for(index=0; index<len; index++)
-  {
-    if (ptr[index] == '\n')
-    {
+  if (ptr == NULL) {
+      uart_putc('<');
+      uart_putc('N');
+      uart_putc('U');
+      uart_putc('L');
+      uart_putc('L');
+      uart_putc('>');
       uart_putc('\r');
-    }
-
-    uart_putc(ptr[index]);
+      uart_putc('\n');
   }
+  else {
 
+	/* Output string by UART */
+	for(index=0; index<len; index++) {
+		if (ptr[index] == '\0') {
+			return (index - 1);
+		}
+		
+		if (ptr[index] == '\n') {
+			uart_putc('\r');
+		}
+
+		uart_putc(ptr[index]);
+	}
+  }
   return len;
 }
 
