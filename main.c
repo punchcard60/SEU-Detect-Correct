@@ -21,10 +21,9 @@ int main(void) {
  * Create a new task and add it to the list of tasks that are ready to run.
  */
 
-  ret = xTaskCreate(test_FPU_test, "FPU", configMINIMAL_STACK_SIZE, NULL, 1, &pvCreatedTask);
-    printf((ret == pdPASS) ? "FPU task created\n" : "FPU task create failed\n");
-  if (ret == pdTRUE) {
-    printf("Starting Scheduler clk = %"PRIu32"\n", SystemCoreClock);
+	ret = xTaskCreate( test_FPU_test, "FPU", (uint16_t)(configMINIMAL_STACK_SIZE * 2), NULL, ((UBaseType_t)configTIMER_TASK_PRIORITY), NULL);
+  if (ret == pdPASS) {
+    printf("FPU task created\nStarting Scheduler\n");
     vTaskStartScheduler();  // should never return
   } else {
     printf("System Error!\n");

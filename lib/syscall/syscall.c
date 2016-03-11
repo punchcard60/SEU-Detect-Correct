@@ -74,7 +74,6 @@ int __attribute__((no_instrument_function)) _write_r (struct _reent *r, int file
 {
   r = r;
   file = file;
-  ptr = ptr;
 
   int index;
 
@@ -95,7 +94,7 @@ int __attribute__((no_instrument_function)) _write_r (struct _reent *r, int file
 		if (ptr[index] == '\0') {
 			return (index - 1);
 		}
-		
+
 		if (ptr[index] == '\n') {
 			uart_putc('\r');
 		}
