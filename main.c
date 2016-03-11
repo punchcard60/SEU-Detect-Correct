@@ -79,11 +79,11 @@ void vApplicationStackOverflowHook(xTaskHandle pxTask, signed char *pcTaskName) 
 }
 
 void test_FPU_test(void* p) {
-
   for (;;) {
+
   	printf("FPU test.\n");
     vTaskDelay(1000);
+
   }
-  vTaskDelete(NULL);
 }
 
