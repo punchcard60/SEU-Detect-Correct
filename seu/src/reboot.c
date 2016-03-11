@@ -2,12 +2,10 @@
 #include <uart.h>
 #include <inttypes.h>
 #include <stdio.h>
-#include <trace_functions.h>
+#include <seu.h>
 
-void __attribute__((no_instrument_function)) seu_start_check(void)
+void seu_start_check(void)
 {
-	crc_enable = CRC_SIGNATURE;
-
 	uart_init();
 
 printf("accessing backup SRAM");
@@ -53,8 +51,8 @@ printf("   Fix needed in block %d\n", backup_sram->block_number);
 		printf("   bad sram block number %d\n", backup_sram->block_number);
 	}
 
-printf("Turn on the clock tick\n");
-	seu_init(); /* Kicks off a timer to update the expiration clock */
+printf("Turn on the crc background process\n");
+	seu_init();
 printf("Startup check complete\n");
 }
 

@@ -90,11 +90,11 @@ def writeScript():
         for line in headData: #write first half of linker script
             outputFile.write('%s' % line)
 
-        section1 = fnData.pop('section1_profile_func_enter')
+        section1 = fnData.pop('section1_check_block')
         section1fix = fnData.pop('section1_fix_block')
-        section2 = fnData.pop('section2_profile_func_enter')
+        section2 = fnData.pop('section2_check_block')
         section2fix = fnData.pop('section2_fix_block')
-        section3 = fnData.pop('section3_profile_func_enter')
+        section3 = fnData.pop('section3_check_block')
         section3fix = fnData.pop('section3_fix_block')
         blknum = 0
 

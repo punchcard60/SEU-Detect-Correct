@@ -31,8 +31,6 @@ typedef struct block {
 	uint32_t	crc;
 } block_t;
 
-static uint32_t CRC_CalcBlockCRC (uint32_t *buffer, uint32_t words);
-
 int main(int argc, char** argv) {
     // arguments:
     // argv[1] input file name
@@ -71,11 +69,11 @@ int main(int argc, char** argv) {
     block_t* blocks = (block_t*)(inputData + block_start_offset);
     uint32_t blockCount = *((uint32_t*)(inputData + text_start_offs + 4)); //pointer to symbol defined in Linker Script
 
-    int idx, numWords;
-	numWords = (sizeof(block_t) - sizeof(uint32_t)) / sizeof(uint32_t);
+    int idx, numBytes;
+	numBytes = (sizeof(block_t) - sizeof(uint32_t));
     for (idx = 0; idx < blockCount; idx++) {
         encode_rs((word_t*) &blocks[idx]);
-        blocks[idx].crc = CRC_CalcBlockCRC((uint32_t*)&blocks[idx], numWords);
+        blocks[idx].crc = CRC_CalcBlockCRC((uint8_t*)&blocks[idx], numBytes);
 		printf("%d   %"PRIu32"\n", idx, blocks[idx].crc);
 	}
 
@@ -85,57 +83,3 @@ int main(int argc, char** argv) {
     free(inputData);
     return 0;
 }
-
-static uint32_t CRC_CalcBlockCRC(uint32_t *buffer, uint32_t words) {
-     cm_t           crc_model;
-     uint32_t       word_to_do;
-     unsigned char  byte_to_do;
-     int            i;
-
-     // Values for the STM32F generator.
-
-     crc_model.cm_width = 32;            // 32-bit CRC
-     crc_model.cm_poly  = 0x04C11DB7;    // CRC-32 polynomial
-     crc_model.cm_init  = 0xFFFFFFFF;    // CRC initialized to 1's
-     crc_model.cm_refin = FALSE;         // CRC calculated MSB first
-     crc_model.cm_refot = FALSE;         // Final result is not bit-reversed
-     crc_model.cm_xorot = 0x00000000;    // Final result XOR'ed with this
-
-     cm_ini(&crc_model);
-
-     while (words--)
-     {
-         // The STM32F10x hardware does 32-bit words at a time!!!
-
-         word_to_do = *buffer++;
-
-         // Do all bytes in the 32-bit word.
-
-         for (i = 0; i < sizeof(word_to_do); i++)
-         {
-             // We calculate a *byte* at a time. If the CRC is MSB first we
-             // do the next MS byte and vica-versa.
-
-             if (crc_model.cm_refin == FALSE)
-             {
-                 // MSB first. Do the next MS byte.
-
-                 byte_to_do = (unsigned char) ((word_to_do & 0xFF000000) >> 24);
-                 word_to_do <<= 8;
-             }
-             else
-             {
-                 // LSB first. Do the next LS byte.
-
-                 byte_to_do = (unsigned char) (word_to_do & 0x000000FF);
-                 word_to_do >>= 8;
-             }
-
-             cm_nxt(&crc_model, byte_to_do);
-         }
-     }
-
-     // Return the final result.
-
-     return (cm_crc(&crc_model));
- }

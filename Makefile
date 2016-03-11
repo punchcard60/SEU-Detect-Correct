@@ -23,6 +23,7 @@ INCLUDE+=-I$(REED_SOLOMON)/include
 INCLUDE+=-I$(CURDIR)/lib/CMSIS/Device/ST/STM32F4xx/Include
 INCLUDE+=-I$(CURDIR)/lib/CMSIS/Include
 INCLUDE+=-I$(CURDIR)/lib/STM32F4xx_StdPeriph_Driver/inc
+INCLUDE+=-I$(CURDIR)/lib/CRC_Generator
 INCLUDE+=-I$(FREERTOS)/include
 INCLUDE+=-I$(FREERTOS)/portable/GCC/ARM_CM4F
 
@@ -43,7 +44,7 @@ SRC += $(SEU_SRC_DIR)/reboot.c \
 	   $(RS_SRC)/alpha_to.c \
        $(RS_SRC)/genpoly.c \
        $(RS_SRC)/index_of.c \
-	   $(SEU_SRC_DIR)/trace_functions.c
+	   $(SEU_SRC_DIR)/seu.c
 
 SRC += main.c
 
@@ -60,8 +61,7 @@ SRC += $(FREERTOS)/event_groups.c \
 CRC_SRCS := $(RS_SRC)/alpha_to.c \
        	    $(RS_SRC)/genpoly.c \
        	    $(RS_SRC)/index_of.c \
-		    lib/CRC_Generator/crcmodel.c \
-            lib/CRC_Generator/main.c
+		    lib/CRC_Generator/main.c
 
 AOBJ:=$(addsuffix .o, $(addprefix $(BUILD_DIR)/, $(basename $(notdir $(ASRC)))))
 OBJ:=$(addsuffix .o, $(addprefix $(BUILD_DIR)/, $(basename $(notdir $(SRC)))))
@@ -71,7 +71,6 @@ COMMONFLAGS=-O$(OPTLVL) $(DBG) -Wall -ffunction-sections -fdata-sections
 CFLAGS=$(COMMONFLAGS) $(MCU_FLAGS) $(INCLUDE) -DSTM32F40_41xxx
 LDLIBS=-lm
 LDFLAGS=$(COMMONFLAGS) $(MCU_FLAGS) -fno-exceptions
-SEUFLAG=-finstrument-functions
 
 INITIAL_LINKERSCRIPT=$(REED_SOLOMON)/STM32F4xx_FLASH.ld
 SECONDARY_LINKERSCRIPT=-Tbuild/gen/secondary_seu_link.ld
@@ -103,73 +102,73 @@ $(call TO_OBJ,$(ASRC)): $(ASRC)
 	@echo [AS] $(notdir $<)
 	@$(AS) -o $@ $^
 
+$(call TO_OBJ,main.c): main.c
+	@echo [CC] $(notdir $<)
+	@$(CC) $(CFLAGS) $< -c -o $@
+
 $(call TO_OBJ,$(STARTUP)/handlers.c): $(STARTUP)/handlers.c
 	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+	@$(CC) $(CFLAGS) $< -c -o $@
 
 $(call TO_OBJ,$(SEU_SRC_DIR)/reboot.c): $(SEU_SRC_DIR)/reboot.c
 	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+	@$(CC) $(CFLAGS) $< -c -o $@
 
 $(call TO_OBJ,$(STARTUP)/system_stm32f4xx.c): $(STARTUP)/system_stm32f4xx.c
 	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+	@$(CC) $(CFLAGS) $< -c -o $@
 
 $(call TO_OBJ,$(CURDIR)/hardware/uart.c): $(CURDIR)/hardware/uart.c
 	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+	@$(CC) $(CFLAGS) $< -c -o $@
 
 $(call TO_OBJ,$(CURDIR)/lib/syscall/syscall.c): $(CURDIR)/lib/syscall/syscall.c
 	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+	@$(CC) $(CFLAGS) $< -c -o $@
 
 $(call TO_OBJ,$(RS_SRC)/alpha_to.c): $(RS_SRC)/alpha_to.c
 	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+	@$(CC) $(CFLAGS) $< -c -o $@
 
 $(call TO_OBJ,$(RS_SRC)/genpoly.c): $(RS_SRC)/genpoly.c
 	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+	@$(CC) $(CFLAGS) $< -c -o $@
 
 $(call TO_OBJ,$(RS_SRC)/index_of.c): $(RS_SRC)/index_of.c
 	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+	@$(CC) $(CFLAGS) $< -c -o $@
 
-$(call TO_OBJ,$(SEU_SRC_DIR)/trace_functions.c): $(SEU_SRC_DIR)/trace_functions.c
+$(call TO_OBJ,$(SEU_SRC_DIR)/seu.c): $(SEU_SRC_DIR)/seu.c
 	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
-
-$(call TO_OBJ,main.c): main.c
-	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+	@$(CC) $(CFLAGS) $< -c -o $@
 
 $(call TO_OBJ,$(FREERTOS)/event_groups.c): $(FREERTOS)/event_groups.c
 	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+	@$(CC) $(CFLAGS) $< -c -o $@
 
 $(call TO_OBJ,$(FREERTOS)/list.c): $(FREERTOS)/list.c
 	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+	@$(CC) $(CFLAGS) $< -c -o $@
 
 $(call TO_OBJ,$(FREERTOS)/queue.c): $(FREERTOS)/queue.c
 	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+	@$(CC) $(CFLAGS) $< -c -o $@
 
 $(call TO_OBJ,$(FREERTOS)/tasks.c): $(FREERTOS)/tasks.c
 	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+	@$(CC) $(CFLAGS) $< -c -o $@
 
 $(call TO_OBJ,$(FREERTOS)/timers.c): $(FREERTOS)/timers.c
 	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+	@$(CC) $(CFLAGS) $< -c -o $@
 
 $(call TO_OBJ,$(FREERTOS)/portable/GCC/ARM_CM4F/port.c): $(FREERTOS)/portable/GCC/ARM_CM4F/port.c
 	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+	@$(CC) $(CFLAGS) $< -c -o $@
 
 $(call TO_OBJ,$(FREERTOS)/portable/MemMang/heap_4.c): $(FREERTOS)/portable/MemMang/heap_4.c
 	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $(SEUFLAG) $< -c -o $@
+	@$(CC) $(CFLAGS) $< -c -o $@
 
 
 INITIAL_COMPILATION: $(AOBJ) $(OBJ)

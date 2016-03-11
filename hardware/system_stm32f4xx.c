@@ -456,10 +456,10 @@ __I uint8_t AHBPrescTable[16] = {0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 6, 7, 8, 9}
   * @{
   */
 
-static void __attribute__((no_instrument_function)) SetSysClock(void);
+static void SetSysClock(void);
 
 #if defined(DATA_IN_ExtSRAM) || defined(DATA_IN_ExtSDRAM)
-static void __attribute__((no_instrument_function)) SystemInit_ExtMemCtl(void);
+static void SystemInit_ExtMemCtl(void);
 #endif /* DATA_IN_ExtSRAM || DATA_IN_ExtSDRAM */
 
 /**
@@ -477,7 +477,7 @@ static void __attribute__((no_instrument_function)) SystemInit_ExtMemCtl(void);
   * @param  None
   * @retval None
   */
-void __attribute__((no_instrument_function)) SystemInit(void)
+void SystemInit(void)
 {
   /* FPU settings ------------------------------------------------------------*/
   #if (__FPU_PRESENT == 1) && (__FPU_USED == 1)
@@ -554,7 +554,7 @@ void __attribute__((no_instrument_function)) SystemInit(void)
   * @param  None
   * @retval None
   */
-void __attribute__((no_instrument_function)) SystemCoreClockUpdate(void)
+void SystemCoreClockUpdate(void)
 {
   uint32_t tmp = 0, pllvco = 0, pllp = 2, pllsource = 0, pllm = 2;
 #if defined(STM32F446xx)
@@ -648,7 +648,7 @@ void __attribute__((no_instrument_function)) SystemCoreClockUpdate(void)
   * @param  None
   * @retval None
   */
-static void __attribute__((no_instrument_function)) SetSysClock(void)
+static void SetSysClock(void)
 {
 #if defined(STM32F40_41xxx) || defined(STM32F427_437xx) || defined(STM32F429_439xx) || defined(STM32F401xx) || defined(STM32F446xx)|| defined(STM32F469_479xx)
 /******************************************************************************/
@@ -881,7 +881,7 @@ static void __attribute__((no_instrument_function)) SetSysClock(void)
   * @param  None
   * @retval None
   */
-void __attribute__((no_instrument_function)) SystemInit_ExtMemCtl(void)
+void SystemInit_ExtMemCtl(void)
 {
 /*-- GPIOs Configuration -----------------------------------------------------*/
 /*
@@ -1038,7 +1038,7 @@ void __attribute__((no_instrument_function)) SystemInit_ExtMemCtl(void)
   * @param  None
   * @retval None
   */
-void __attribute__((no_instrument_function)) SystemInit_ExtMemCtl(void)
+void SystemInit_ExtMemCtl(void)
 {
   register uint32_t tmpreg = 0, timeout = 0xFFFF;
   register uint32_t index;

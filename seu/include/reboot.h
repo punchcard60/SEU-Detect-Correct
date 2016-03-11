@@ -23,7 +23,7 @@
 #include <stdio.h>
 
 #ifndef INLINE_ATTRIBUTE
-#define INLINE_ATTRIBUTE __attribute__((no_instrument_function, always_inline))
+#define INLINE_ATTRIBUTE __attribute__((always_inline))
 #endif
 
 typedef struct {
@@ -35,9 +35,7 @@ typedef struct {
 #define SEU_FIX_SIGNATURE 0x87654321
 #define BLOCK_COUNT 	((896 * 1024) / 13312) /* 68 */
 
-void __attribute__((no_instrument_function)) section1_fix_block(uint32_t block_number);
-void __attribute__((no_instrument_function)) section2_fix_block(uint32_t block_number);
-void __attribute__((no_instrument_function)) section3_fix_block(uint32_t block_number);
+extern void seu_start_check(void);
 
 inline static reboot_block_t* INLINE_ATTRIBUTE access_backup_domain_sram() {
 	/* Get access to the 4K of SRAM in the backup domain */
@@ -73,7 +71,5 @@ inline static void INLINE_ATTRIBUTE reboot_and_fix_block(uint32_t block_number, 
 
 	reboot();
 }
-
-extern void __attribute__((no_instrument_function)) seu_start_check(void);
 
 #endif /* _REBOOT_H */
