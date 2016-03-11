@@ -50,10 +50,9 @@ printf("   Fix needed in block %d\n", backup_sram->block_number);
 			backup_sram->fixer = (uint16_t)0xFFFF;
 			reboot();
 		}
-		else {
-printf("   No fix needed in block %d\n", backup_sram->block_number);
-			/* we're in the middle of a fixup */
-		}
+		printf("   bad sram block number %d\n", backup_sram->block_number);
+	}
+
 printf("Turn on the clock tick\n");
 	seu_init(); /* Kicks off a timer to update the expiration clock */
 printf("Startup check complete\n");
