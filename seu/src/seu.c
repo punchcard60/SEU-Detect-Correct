@@ -43,18 +43,18 @@ TimerHandle_t  htimer;
 void seu_timer(TimerHandle_t pxTimer);
 
 void seu_init(void) {
-    debug("seu_init()\n");
+    dprint("seu_init()\n");
     htimer = xTimerCreate("SEU", 300, pdTRUE, NULL, seu_timer);
-    debug("timer created\n");
+    dprint("timer created\n");
     xTimerStart(htimer, 0);
-    debug("timer started\n");
-    debug("seu_init() exit\n");
+    dprint("timer started\n");
+    dprint("seu_init() exit\n");
 }
 
 void seu_timer(TimerHandle_t pxTimer) {
 	uint32_t i = 0;
 
-	debug("Block Check");
+	dprint("Block Check");
 	while (i <= FUNCT2_BLOCK) {
 		section3_check_block(i++);
 	}
@@ -63,6 +63,18 @@ void seu_timer(TimerHandle_t pxTimer) {
 	}
 }
 
+void dprint(const char *fmt, ...)
+{
+    static char buff[256];
+    va_list args;
+    va_start(args, fmt);
+
+    int len = vsprintf(buff, fmt, args);
+    buff[len] = '\0';
+    puts(buff);
+
+    va_end(args);
+}
 /**************************************************************************
  *
  *     SECTION 1   SECTION 1   SECTION 1   SECTION 1   SECTION 1   SECTION 1
@@ -70,7 +82,7 @@ void seu_timer(TimerHandle_t pxTimer) {
  **************************************************************************/
 
 void section1_check_block(uint32_t block_number) {
-	debug("section1_check_block(%"PRIu32")\n", block_number);
+	dprint("section1_check_block(%"PRIu32")\n", block_number);
 
 	/* Can't fix a block in the same physical flash section as this function */
 	if (data_block_is_in_flash_section(block_number, FUNCT1_FLASH_SECTION)) {
@@ -85,7 +97,7 @@ void section1_check_block(uint32_t block_number) {
 }
 
 void section1_fix_block(uint32_t block_number) {
-	debug("section1_fix_block(%"PRIu32")\n", block_number);
+	dprint("section1_fix_block(%"PRIu32")\n", block_number);
 	if (data_block_is_in_flash_section(block_number, FUNCT1_FLASH_SECTION)) {
 		section2_fix_block(block_number);
 	}else
@@ -121,7 +133,7 @@ uint32_t crc_check1(uint32_t block_number) {
 
 	crc = crc_calc1(ptr, crc_ptr);
 	ref_crc = *((uint32_t*)crc_ptr);
-    debug("CRC results %"PRIu32" ^ %"PRIu32"\n", crc, ref_crc);
+    dprint("CRC results %"PRIu32" ^ %"PRIu32"\n", crc, ref_crc);
 
 	return (crc ^ ref_crc);
 }
@@ -141,7 +153,7 @@ void crc_fix1(uint32_t block_number, error_marker_t* marker) {
  **************************************************************************/
 
 void section2_check_block(uint32_t block_number) {
-	debug("section2_check_block(%"PRIu32")\n", block_number);
+	dprint("section2_check_block(%"PRIu32")\n", block_number);
 
 	/* Can't fix a block in the same physical flash section as this function */
 	if (data_block_is_in_flash_section(block_number, FUNCT2_FLASH_SECTION)) {
@@ -156,7 +168,7 @@ void section2_check_block(uint32_t block_number) {
 }
 
 void section2_fix_block(uint32_t block_number) {
-    debug("section2_fix_block(%"PRIu32")\n", block_number);
+    dprint("section2_fix_block(%"PRIu32")\n", block_number);
 	if (data_block_is_in_flash_section(block_number, FUNCT2_FLASH_SECTION)) {
 		section3_fix_block(block_number);
 	}else
@@ -192,7 +204,7 @@ uint32_t crc_check2(uint32_t block_number) {
 
 	crc = crc_calc2(ptr, crc_ptr);
 	ref_crc = *((uint32_t*)crc_ptr);
-    debug("CRC results %"PRIu32" ^ %"PRIu32"\n", crc, ref_crc);
+    dprint("CRC results %"PRIu32" ^ %"PRIu32"\n", crc, ref_crc);
 
 	return (crc ^ ref_crc);
 }
@@ -212,7 +224,7 @@ void crc_fix2(uint32_t block_number, error_marker_t* marker) {
  **************************************************************************/
 
 void section3_check_block(uint32_t block_number) {
-	debug("section3_check_block(%"PRIu32")\n", block_number);
+	dprint("section3_check_block(%"PRIu32")\n", block_number);
 
 	/* Can't fix a block in the same physical flash section as this function */
 	if (data_block_is_in_flash_section(block_number, FUNCT3_FLASH_SECTION)) {
@@ -227,7 +239,7 @@ void section3_check_block(uint32_t block_number) {
 }
 
 void section3_fix_block(uint32_t block_number) {
-    debug("section3_fix_block(%"PRIu32")\n", block_number);
+    dprint("section3_fix_block(%"PRIu32")\n", block_number);
 	if (data_block_is_in_flash_section(block_number, FUNCT3_FLASH_SECTION)) {
 		section1_fix_block(block_number);
 	}else
@@ -263,7 +275,7 @@ uint32_t crc_check3(uint32_t block_number) {
 
 	crc = crc_calc3(ptr, crc_ptr);
 	ref_crc = *((uint32_t*)crc_ptr);
-    debug("CRC results %"PRIu32" ^ %"PRIu32"\n", crc, ref_crc);
+    dprint("CRC results %"PRIu32" ^ %"PRIu32"\n", crc, ref_crc);
 
 	return (crc ^ ref_crc);
 }
