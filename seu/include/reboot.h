@@ -48,7 +48,7 @@ inline static reboot_block_t* INLINE_ATTRIBUTE access_backup_domain_sram() {
 inline static void INLINE_ATTRIBUTE reboot() {
 	/* Disable all interrupts */
 	RCC->CIR = 0x00000000;
-printf("\n*** REBOOT ***\n");
+	debug("\n*** REBOOT ***\n");
 
 	/* Reboot */
     __ASM volatile ("dsb");                                    /* Ensure all outstanding memory accesses included

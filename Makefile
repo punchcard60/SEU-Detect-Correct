@@ -50,12 +50,14 @@ SRC += $(SEU_SRC_DIR)/reboot.c \
 SRC += main.c
 
 # FreeRTOS sources
+HEAP_IMPL := heap_3
+
 SRC += $(FREERTOS)/list.c \
        $(FREERTOS)/queue.c \
        $(FREERTOS)/tasks.c \
        $(FREERTOS)/timers.c \
        $(FREERTOS)/portable/GCC/ARM_CM4F/port.c \
-       $(FREERTOS)/portable/MemMang/heap_1.c
+       $(FREERTOS)/portable/MemMang/$(HEAP_IMPL).c
 
 # CRC32 sources
 CRC_SRCS := $(RS_SRC)/alpha_to.c \
@@ -162,7 +164,7 @@ $(call TO_OBJ,$(FREERTOS)/portable/GCC/ARM_CM4F/port.c): $(FREERTOS)/portable/GC
 	@echo [CC] $(notdir $<)
 	@$(CC) $(CFLAGS) $< -c -o $@
 
-$(call TO_OBJ,$(FREERTOS)/portable/MemMang/heap_1.c): $(FREERTOS)/portable/MemMang/heap_1.c
+$(call TO_OBJ,$(FREERTOS)/portable/MemMang/$(HEAP_IMPL).c): $(FREERTOS)/portable/MemMang/$(HEAP_IMPL).c
 	@echo [CC] $(notdir $<)
 	@$(CC) $(CFLAGS) $< -c -o $@
 

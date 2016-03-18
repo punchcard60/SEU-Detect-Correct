@@ -19,6 +19,7 @@
 #include <timers.h>
 #include <stm32f4xx.h>
 #include <seu.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <inttypes.h>
 #include <crcmodel.h>
@@ -42,24 +43,24 @@ TimerHandle_t  htimer;
 void seu_timer(TimerHandle_t pxTimer);
 
 void seu_init(void) {
-printf("seu_init()\n");
-	htimer = xTimerCreate("SEU", 300, pdTRUE, NULL, seu_timer);
-printf("timer created\n");
-	xTimerStart(htimer, 0);
-printf("timer started\n");
-printf("seu_init() exit\n");
+    debug("seu_init()\n");
+    htimer = xTimerCreate("SEU", 300, pdTRUE, NULL, seu_timer);
+    debug("timer created\n");
+    xTimerStart(htimer, 0);
+    debug("timer started\n");
+    debug("seu_init() exit\n");
 }
 
 void seu_timer(TimerHandle_t pxTimer) {
 	uint32_t i = 0;
-printf("Block Check");
+
+	debug("Block Check");
 	while (i <= FUNCT2_BLOCK) {
 		section3_check_block(i++);
 	}
 	while (i < BLOCK_COUNT) {
 		section1_check_block(i++);
 	}
-printf("  END\n");
 }
 
 /**************************************************************************
@@ -69,6 +70,7 @@ printf("  END\n");
  **************************************************************************/
 
 void section1_check_block(uint32_t block_number) {
+	debug("section1_check_block(%"PRIu32")\n", block_number);
 
 	/* Can't fix a block in the same physical flash section as this function */
 	if (data_block_is_in_flash_section(block_number, FUNCT1_FLASH_SECTION)) {
@@ -83,6 +85,7 @@ void section1_check_block(uint32_t block_number) {
 }
 
 void section1_fix_block(uint32_t block_number) {
+	debug("section1_fix_block(%"PRIu32")\n", block_number);
 	if (data_block_is_in_flash_section(block_number, FUNCT1_FLASH_SECTION)) {
 		section2_fix_block(block_number);
 	}else
@@ -118,6 +121,7 @@ uint32_t crc_check1(uint32_t block_number) {
 
 	crc = crc_calc1(ptr, crc_ptr);
 	ref_crc = *((uint32_t*)crc_ptr);
+    debug("CRC results %"PRIu32" ^ %"PRIu32"\n", crc, ref_crc);
 
 	return (crc ^ ref_crc);
 }
@@ -137,6 +141,7 @@ void crc_fix1(uint32_t block_number, error_marker_t* marker) {
  **************************************************************************/
 
 void section2_check_block(uint32_t block_number) {
+	debug("section2_check_block(%"PRIu32")\n", block_number);
 
 	/* Can't fix a block in the same physical flash section as this function */
 	if (data_block_is_in_flash_section(block_number, FUNCT2_FLASH_SECTION)) {
@@ -151,6 +156,7 @@ void section2_check_block(uint32_t block_number) {
 }
 
 void section2_fix_block(uint32_t block_number) {
+    debug("section2_fix_block(%"PRIu32")\n", block_number);
 	if (data_block_is_in_flash_section(block_number, FUNCT2_FLASH_SECTION)) {
 		section3_fix_block(block_number);
 	}else
@@ -186,6 +192,7 @@ uint32_t crc_check2(uint32_t block_number) {
 
 	crc = crc_calc2(ptr, crc_ptr);
 	ref_crc = *((uint32_t*)crc_ptr);
+    debug("CRC results %"PRIu32" ^ %"PRIu32"\n", crc, ref_crc);
 
 	return (crc ^ ref_crc);
 }
@@ -205,6 +212,7 @@ void crc_fix2(uint32_t block_number, error_marker_t* marker) {
  **************************************************************************/
 
 void section3_check_block(uint32_t block_number) {
+	debug("section3_check_block(%"PRIu32")\n", block_number);
 
 	/* Can't fix a block in the same physical flash section as this function */
 	if (data_block_is_in_flash_section(block_number, FUNCT3_FLASH_SECTION)) {
@@ -219,6 +227,7 @@ void section3_check_block(uint32_t block_number) {
 }
 
 void section3_fix_block(uint32_t block_number) {
+    debug("section3_fix_block(%"PRIu32")\n", block_number);
 	if (data_block_is_in_flash_section(block_number, FUNCT3_FLASH_SECTION)) {
 		section1_fix_block(block_number);
 	}else
@@ -254,6 +263,7 @@ uint32_t crc_check3(uint32_t block_number) {
 
 	crc = crc_calc3(ptr, crc_ptr);
 	ref_crc = *((uint32_t*)crc_ptr);
+    debug("CRC results %"PRIu32" ^ %"PRIu32"\n", crc, ref_crc);
 
 	return (crc ^ ref_crc);
 }

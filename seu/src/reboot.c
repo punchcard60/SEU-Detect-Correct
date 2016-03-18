@@ -8,25 +8,25 @@ void seu_start_check(void)
 {
 	uart_init();
 
-printf("accessing backup SRAM");
+debug("accessing backup SRAM\n");
 
 	/* Get access to the 4K of SRAM in the backup domain */
     RCC->APB1ENR |= RCC_APB1ENR_PWREN;
 	PWR->CR = PWR_CR_DBP;
     RCC->AHB1ENR |= RCC_AHB1ENR_BKPSRAMEN;
 	reboot_block_t* backup_sram = (reboot_block_t*)BKPSRAM_BASE;
-printf(" ok");
+debug(" ok\n");
 
 	if (backup_sram->signature != SEU_FIX_SIGNATURE) {
 		/* This is a power on reset */
-printf("   New Signature\n");
+debug("   New Signature\n");
 		backup_sram->signature = SEU_FIX_SIGNATURE;
 		backup_sram->block_number = (uint16_t)0xFFFF;
 		backup_sram->fixer = (uint16_t)0xFFFF;
 	}
 	else {
 		if (backup_sram->block_number < BLOCK_COUNT) {
-printf("   Fix needed in block %d\n", backup_sram->block_number);
+			debug("   Fix needed in block\n");
 			/* we're in the middle of a fixup */
 			switch(backup_sram->fixer) {
 				case 1:
@@ -46,15 +46,16 @@ printf("   Fix needed in block %d\n", backup_sram->block_number);
 			/* Must have been successful fixing the block */
 			backup_sram->block_number = (uint16_t)0xFFFF;
 			backup_sram->fixer = (uint16_t)0xFFFF;
+			debug("reboot\n");
 			reboot();
 		}
 		if (backup_sram->block_number != (uint16_t)0xFFFF) {
-			printf("   bad sram block number %d\n", backup_sram->block_number);
+			debug("   bad sram block number %d\n", backup_sram->block_number);
 		}
 	}
 
-printf("Turn on the crc background process\n");
+	debug("Turn on the crc background process\n");
 	seu_init();
-printf("Startup check complete\n");
+	debug("Startup check complete\n");
 }
 

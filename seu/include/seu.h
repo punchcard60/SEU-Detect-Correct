@@ -21,6 +21,7 @@
 #include <FreeRTOS.h>
 #include <timers.h>
 #include <stm32f4xx.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
@@ -31,6 +32,19 @@
 #ifndef NULL
 #define NULL ((void*)0)
 #endif
+
+inline void debug(const char *fmt, ...)
+{
+    static char buff[256];
+    va_list args;
+    va_start(args, fmt);
+
+    int len = vsprintf(buff, fmt, args);
+    buff[len] = '\0';
+    puts(buff);
+
+    va_end(args);
+}
 
 extern void seu_init(void);
 extern void seu_start_check(void);
@@ -126,6 +140,7 @@ inline static void INLINE_ATTRIBUTE flash_copy_to_work(int flash_section, int co
 	uint32_t* dest = (uint32_t*)FlashSections[WORK_FLASH_SECTION];
 	int i = 0;
 
+	debug("flash_copy_to_work(%d)\n", flash_section);
 	if((FLASH->CR & FLASH_CR_LOCK) != RESET)
 	{
 		/* Authorize the FLASH Registers access */
@@ -173,6 +188,7 @@ inline static void INLINE_ATTRIBUTE flash_copy_from_work(int flash_section) {
 	uint32_t* src = (uint32_t*)FlashSections[WORK_FLASH_SECTION];
 	uint32_t* dest = (uint32_t*)FlashSections[flash_section];
 	uint32_t* dest_limit = (uint32_t*)FlashSections[flash_section + 1];
+	debug("flash_copy_from_work(%d)\n", flash_section);
 
 	if((FLASH->CR & FLASH_CR_LOCK) != RESET)
 	{
@@ -213,6 +229,7 @@ inline static void INLINE_ATTRIBUTE flash_copy_from_work(int flash_section) {
 typedef void (*crc_fix_t)(uint32_t blk, error_marker_t* marker);
 
 inline static void INLINE_ATTRIBUTE fix_block(uint32_t block_number, crc_fix_t crc_fix) {
+	debug("fix_block(%"PRIu32")\n", block_number);
 	error_marker_t corrections[RS_MAX_CORRECTIONS];
 	error_marker_t* sorted_corrections[RS_MAX_CORRECTIONS];
 	error_marker_t* ptr;
