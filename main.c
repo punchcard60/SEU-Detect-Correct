@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <inttypes.h>
 
+#define NVIC_PriorityGroup_4         ((uint32_t)0x300) /*!< 4 bits for pre-emption priority
+                                                            0 bits for subpriority */
+#define AIRCR_VECTKEY_MASK    ((uint32_t)0x05FA0000)
 
 void test_FPU_test(void* p);
 
@@ -13,7 +16,8 @@ TaskHandle_t pvCreatedTask;
 int main(void) {
   uint8_t ret;
 
-	NVIC_SetPriorityGrouping( 0 );
+//	NVIC_PriorityGroupConfig( NVIC_PriorityGroup_4 );
+	SCB->AIRCR = AIRCR_VECTKEY_MASK | NVIC_PriorityGroup_4;
 
     printf("\n*** main: System Started! ***\n\n");
 
@@ -21,7 +25,7 @@ int main(void) {
  * Create a new task and add it to the list of tasks that are ready to run.
  */
 
-	ret = xTaskCreate( test_FPU_test, "FPU", (uint16_t)(configMINIMAL_STACK_SIZE * 2), NULL, ((UBaseType_t)configTIMER_TASK_PRIORITY), NULL);
+	ret = xTaskCreate( test_FPU_test, "FPU", (uint16_t)(configMINIMAL_STACK_SIZE * 4), NULL, ((UBaseType_t)configTIMER_TASK_PRIORITY), NULL);
   if (ret == pdPASS) {
     printf("FPU task created\nStarting Scheduler\n");
     vTaskStartScheduler();  // should never return
@@ -37,6 +41,7 @@ int main(void) {
 extern uint64_t clock;
 
 void __attribute__((no_instrument_function)) vApplicationTickHook(void) {
+for(;;);
 printf("tock\n");
 	clock++;
 }
@@ -79,11 +84,16 @@ void vApplicationStackOverflowHook(xTaskHandle pxTask, signed char *pcTaskName) 
 }
 
 void test_FPU_test(void* p) {
+	int x;
   for (;;) {
-for(;;);
   	printf("FPU test.\n");
-    vTaskDelay(1000);
 
+	for(x=0; x<2000000; x++) {
+
+	}
+
+  	printf("FPU delay.\n");
+    vTaskDelay(1000);
   }
 }
 

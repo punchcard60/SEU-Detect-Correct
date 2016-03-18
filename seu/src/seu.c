@@ -51,13 +51,15 @@ printf("seu_init() exit\n");
 }
 
 void seu_timer(TimerHandle_t pxTimer) {
+printf("tick\n");
+/*
 	uint32_t i = 0;
 	while (i <= FUNCT2_BLOCK) {
 		section3_check_block(i++);
 	}
 	while (i < BLOCK_COUNT) {
 		section1_check_block(i++);
-	}
+	} */
 }
 
 /**************************************************************************

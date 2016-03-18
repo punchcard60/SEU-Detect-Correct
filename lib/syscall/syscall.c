@@ -43,6 +43,16 @@
 
 #include "uart.h"
 
+/*********************************/
+struct tms {
+	int a;
+};
+
+int __attribute__((no_instrument_function)) _times_r(struct _reent *r, struct tms *buf)
+{
+        return -1;
+}
+
 /***************************************************************************/
 
 int __attribute__((no_instrument_function)) _read_r (struct _reent *r, int file, char * ptr, int len)

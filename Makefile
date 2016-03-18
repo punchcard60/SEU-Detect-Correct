@@ -37,25 +37,24 @@ ASRC:=$(STARTUP)/startup_stm32f40_41xxx.s
 
 #compiled without finstrument-function
 SRC += $(SEU_SRC_DIR)/reboot.c \
-	   $(STARTUP)/handlers.c \
 	   $(STARTUP)/system_stm32f4xx.c \
 	   $(CURDIR)/hardware/uart.c \
 	   $(CURDIR)/lib/syscall/syscall.c \
 	   $(RS_SRC)/alpha_to.c \
        $(RS_SRC)/genpoly.c \
        $(RS_SRC)/index_of.c \
-	   $(SEU_SRC_DIR)/seu.c
+	   $(SEU_SRC_DIR)/seu.c \
+	   $(STARTUP)/handlers.c
 
 SRC += main.c
 
 # FreeRTOS sources
-SRC += $(FREERTOS)/event_groups.c \
-       $(FREERTOS)/list.c \
+SRC += $(FREERTOS)/list.c \
        $(FREERTOS)/queue.c \
        $(FREERTOS)/tasks.c \
        $(FREERTOS)/timers.c \
        $(FREERTOS)/portable/GCC/ARM_CM4F/port.c \
-       $(FREERTOS)/portable/MemMang/heap_4.c
+       $(FREERTOS)/portable/MemMang/heap_1.c
 
 # CRC32 sources
 CRC_SRCS := $(RS_SRC)/alpha_to.c \
@@ -66,9 +65,9 @@ CRC_SRCS := $(RS_SRC)/alpha_to.c \
 AOBJ:=$(addsuffix .o, $(addprefix $(BUILD_DIR)/, $(basename $(notdir $(ASRC)))))
 OBJ:=$(addsuffix .o, $(addprefix $(BUILD_DIR)/, $(basename $(notdir $(SRC)))))
 
-MCU_FLAGS:=-mcpu=cortex-m4 -mthumb -mlittle-endian -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb-interwork
-COMMONFLAGS=-O$(OPTLVL) $(DBG) -Wall -ffunction-sections -fdata-sections
-CFLAGS=$(COMMONFLAGS) $(MCU_FLAGS) $(INCLUDE) -DSTM32F40_41xxx
+MCU_FLAGS:=-mcpu=cortex-m4 -mthumb -mlittle-endian -mfpu=fpv4-sp-d16 -mfloat-abi=hard
+COMMONFLAGS=-O$(OPTLVL) $(DBG) -Wall -falign-functions=32 -ffunction-sections -fdata-sections
+CFLAGS=$(COMMONFLAGS) $(MCU_FLAGS) -DSTM32F40_41xxx $(INCLUDE)
 LDLIBS=-lm
 LDFLAGS=$(COMMONFLAGS) $(MCU_FLAGS) -fno-exceptions
 
@@ -142,10 +141,6 @@ $(call TO_OBJ,$(SEU_SRC_DIR)/seu.c): $(SEU_SRC_DIR)/seu.c
 	@echo [CC] $(notdir $<)
 	@$(CC) $(CFLAGS) $< -c -o $@
 
-$(call TO_OBJ,$(FREERTOS)/event_groups.c): $(FREERTOS)/event_groups.c
-	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $< -c -o $@
-
 $(call TO_OBJ,$(FREERTOS)/list.c): $(FREERTOS)/list.c
 	@echo [CC] $(notdir $<)
 	@$(CC) $(CFLAGS) $< -c -o $@
@@ -166,7 +161,7 @@ $(call TO_OBJ,$(FREERTOS)/portable/GCC/ARM_CM4F/port.c): $(FREERTOS)/portable/GC
 	@echo [CC] $(notdir $<)
 	@$(CC) $(CFLAGS) $< -c -o $@
 
-$(call TO_OBJ,$(FREERTOS)/portable/MemMang/heap_4.c): $(FREERTOS)/portable/MemMang/heap_4.c
+$(call TO_OBJ,$(FREERTOS)/portable/MemMang/heap_1.c): $(FREERTOS)/portable/MemMang/heap_1.c
 	@echo [CC] $(notdir $<)
 	@$(CC) $(CFLAGS) $< -c -o $@
 

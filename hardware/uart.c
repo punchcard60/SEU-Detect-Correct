@@ -44,7 +44,9 @@
 #define UART_BAUD 115200
 #define CR1_CLEAR_MASK            ((uint16_t)(USART_CR1_M | USART_CR1_PCE | \
                                               USART_CR1_PS | USART_CR1_TE | \
-                                              USART_CR1_RE))
+                                              USART_CR1_RE | USART_CR1_PEIE | \
+											  USART_CR1_TXEIE | USART_CR1_TCIE | \
+											  USART_CR1_RXNEIE | USART_CR1_IDLEIE))
 
 #define CR3_CLEAR_MASK            ((uint16_t)(USART_CR3_RTSE | USART_CR3_CTSE))
 
