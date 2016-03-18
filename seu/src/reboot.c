@@ -48,7 +48,9 @@ printf("   Fix needed in block %d\n", backup_sram->block_number);
 			backup_sram->fixer = (uint16_t)0xFFFF;
 			reboot();
 		}
-		printf("   bad sram block number %d\n", backup_sram->block_number);
+		if (backup_sram->block_number != (uint16_t)0xFFFF) {
+			printf("   bad sram block number %d\n", backup_sram->block_number);
+		}
 	}
 
 printf("Turn on the crc background process\n");

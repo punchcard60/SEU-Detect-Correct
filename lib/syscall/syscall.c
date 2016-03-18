@@ -87,18 +87,7 @@ int __attribute__((no_instrument_function)) _write_r (struct _reent *r, int file
 
   int index;
 
-  if (ptr == NULL) {
-      uart_putc('<');
-      uart_putc('N');
-      uart_putc('U');
-      uart_putc('L');
-      uart_putc('L');
-      uart_putc('>');
-      uart_putc('\r');
-      uart_putc('\n');
-  }
-  else {
-
+  if (ptr != NULL && len > 0) {
 	/* Output string by UART */
 	for(index=0; index<len; index++) {
 		if (ptr[index] == '\0') {
@@ -112,6 +101,17 @@ int __attribute__((no_instrument_function)) _write_r (struct _reent *r, int file
 		uart_putc(ptr[index]);
 	}
   }
+  else if (ptr == NULL) {
+      uart_putc('<');
+      uart_putc('N');
+      uart_putc('U');
+      uart_putc('L');
+      uart_putc('L');
+      uart_putc('>');
+      uart_putc('\r');
+      uart_putc('\n');
+  }
+
   return len;
 }
 

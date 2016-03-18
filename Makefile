@@ -7,6 +7,7 @@ TOOLCHAIN_ROOT := $(abspath $(TOOLCHAIN_ROOT))
 TOOLCHAIN_BIN := $(TOOLCHAIN_ROOT)/bin
 TOOLCHAIN_PREFIX := arm-none-eabi
 
+HSE_VALUE:=24000000
 OPTLVL:=0
 #DBG:=-g
 DBG:=-g
@@ -67,7 +68,7 @@ OBJ:=$(addsuffix .o, $(addprefix $(BUILD_DIR)/, $(basename $(notdir $(SRC)))))
 
 MCU_FLAGS:=-mcpu=cortex-m4 -mthumb -mlittle-endian -mfpu=fpv4-sp-d16 -mfloat-abi=hard
 COMMONFLAGS=-O$(OPTLVL) $(DBG) -Wall -falign-functions=32 -ffunction-sections -fdata-sections
-CFLAGS=$(COMMONFLAGS) $(MCU_FLAGS) -DSTM32F40_41xxx $(INCLUDE)
+CFLAGS=$(COMMONFLAGS) $(MCU_FLAGS) -DSTM32F40_41xxx -DHSE_VALUE="((uint32_t)$(HSE_VALUE))" $(INCLUDE)
 LDLIBS=-lm
 LDFLAGS=$(COMMONFLAGS) $(MCU_FLAGS) -fno-exceptions
 

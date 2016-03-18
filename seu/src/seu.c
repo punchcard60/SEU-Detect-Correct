@@ -51,15 +51,15 @@ printf("seu_init() exit\n");
 }
 
 void seu_timer(TimerHandle_t pxTimer) {
-printf("tick\n");
-/*
 	uint32_t i = 0;
+printf("Block Check");
 	while (i <= FUNCT2_BLOCK) {
 		section3_check_block(i++);
 	}
 	while (i < BLOCK_COUNT) {
 		section1_check_block(i++);
-	} */
+	}
+printf("  END\n");
 }
 
 /**************************************************************************
@@ -69,7 +69,6 @@ printf("tick\n");
  **************************************************************************/
 
 void section1_check_block(uint32_t block_number) {
-	printf("section1_check_block(%"PRIu32")\n", block_number);
 
 	/* Can't fix a block in the same physical flash section as this function */
 	if (data_block_is_in_flash_section(block_number, FUNCT1_FLASH_SECTION)) {
@@ -84,21 +83,15 @@ void section1_check_block(uint32_t block_number) {
 }
 
 void section1_fix_block(uint32_t block_number) {
-	printf("section1_fix_block(%"PRIu32")\n", block_number);
 	if (data_block_is_in_flash_section(block_number, FUNCT1_FLASH_SECTION)) {
 		section2_fix_block(block_number);
 	}else
 	{
-		fix_block(block_number);
+		fix_block(block_number, crc_fix1);
 	}
 }
 
-uint32_t crc_check1(uint32_t block_number) {
-	printf("crc_check1(%"PRIu32")\n", block_number);
-	uint8_t* ptr = (uint8_t*)BLOCK_START(block_number);
-	uint8_t* crc_ptr = &ptr[sizeof(block_t) - sizeof(uint32_t)];
-	uint32_t crc, ref_crc;
-
+uint32_t crc_calc1(uint8_t* ptr, uint8_t* crc_ptr) {
 	cm_t crc_model;
 
      crc_model.cm_width = 32;            // 32-bit CRC
@@ -115,11 +108,26 @@ uint32_t crc_check1(uint32_t block_number) {
 		 cm_nxt(&crc_model,*ptr++);
 	}
 
-	crc = cm_crc(&crc_model);
+	return cm_crc(&crc_model);
+}
+
+uint32_t crc_check1(uint32_t block_number) {
+	uint8_t* ptr = (uint8_t*)BLOCK_START(block_number);
+	uint8_t* crc_ptr = &ptr[sizeof(block_t) - sizeof(uint32_t)];
+	uint32_t crc, ref_crc;
+
+	crc = crc_calc1(ptr, crc_ptr);
 	ref_crc = *((uint32_t*)crc_ptr);
-printf("CRC results %"PRIu32" ^ %"PRIu32"\n", crc, ref_crc);
 
 	return (crc ^ ref_crc);
+}
+
+void crc_fix1(uint32_t block_number, error_marker_t* marker) {
+	uint8_t* ptr = (uint8_t*)BLOCK_START(block_number);
+	uint8_t* crc_ptr = &ptr[sizeof(block_t) - sizeof(uint32_t)];
+
+	marker->corrected_dword = crc_calc1(ptr, crc_ptr) ^ *((uint32_t*)crc_ptr);
+	marker->pointer = (uint32_t*)crc_ptr;
 }
 
 /**************************************************************************
@@ -129,10 +137,9 @@ printf("CRC results %"PRIu32" ^ %"PRIu32"\n", crc, ref_crc);
  **************************************************************************/
 
 void section2_check_block(uint32_t block_number) {
-	printf("section2_check_block(%"PRIu32")\n", block_number);
 
 	/* Can't fix a block in the same physical flash section as this function */
-	if (data_block_is_in_flash_section(block_number, FUNCT1_FLASH_SECTION)) {
+	if (data_block_is_in_flash_section(block_number, FUNCT2_FLASH_SECTION)) {
 		section3_check_block(block_number);
 	}
 	else {
@@ -144,21 +151,15 @@ void section2_check_block(uint32_t block_number) {
 }
 
 void section2_fix_block(uint32_t block_number) {
-printf("section2_fix_block(%"PRIu32")\n", block_number);
-	if (data_block_is_in_flash_section(block_number, FUNCT1_FLASH_SECTION)) {
+	if (data_block_is_in_flash_section(block_number, FUNCT2_FLASH_SECTION)) {
 		section3_fix_block(block_number);
 	}else
 	{
-		fix_block(block_number);
+		fix_block(block_number, crc_fix2);
 	}
 }
 
-uint32_t crc_check2(uint32_t block_number) {
-	printf("crc_check2(%"PRIu32")\n", block_number);
-	uint8_t* ptr = (uint8_t*)BLOCK_START(block_number);
-	uint8_t* crc_ptr = &ptr[sizeof(block_t) - sizeof(uint32_t)];
-	uint32_t crc, ref_crc;
-
+uint32_t crc_calc2(uint8_t* ptr, uint8_t* crc_ptr) {
 	cm_t crc_model;
 
      crc_model.cm_width = 32;            // 32-bit CRC
@@ -175,13 +176,27 @@ uint32_t crc_check2(uint32_t block_number) {
 		 cm_nxt(&crc_model,*ptr++);
 	}
 
-	crc = cm_crc(&crc_model);
+	return cm_crc(&crc_model);
+}
+
+uint32_t crc_check2(uint32_t block_number) {
+	uint8_t* ptr = (uint8_t*)BLOCK_START(block_number);
+	uint8_t* crc_ptr = &ptr[sizeof(block_t) - sizeof(uint32_t)];
+	uint32_t crc, ref_crc;
+
+	crc = crc_calc2(ptr, crc_ptr);
 	ref_crc = *((uint32_t*)crc_ptr);
-printf("CRC results %"PRIu32" ^ %"PRIu32"\n", crc, ref_crc);
 
 	return (crc ^ ref_crc);
 }
 
+void crc_fix2(uint32_t block_number, error_marker_t* marker) {
+	uint8_t* ptr = (uint8_t*)BLOCK_START(block_number);
+	uint8_t* crc_ptr = &ptr[sizeof(block_t) - sizeof(uint32_t)];
+
+	marker->corrected_dword = crc_calc2(ptr, crc_ptr) ^ *((uint32_t*)crc_ptr);
+	marker->pointer = (uint32_t*)crc_ptr;
+}
 
 /**************************************************************************
  *
@@ -190,10 +205,9 @@ printf("CRC results %"PRIu32" ^ %"PRIu32"\n", crc, ref_crc);
  **************************************************************************/
 
 void section3_check_block(uint32_t block_number) {
-	printf("section3_check_block(%"PRIu32")\n", block_number);
 
 	/* Can't fix a block in the same physical flash section as this function */
-	if (data_block_is_in_flash_section(block_number, FUNCT1_FLASH_SECTION)) {
+	if (data_block_is_in_flash_section(block_number, FUNCT3_FLASH_SECTION)) {
 		section1_check_block(block_number);
 	}
 	else {
@@ -205,21 +219,15 @@ void section3_check_block(uint32_t block_number) {
 }
 
 void section3_fix_block(uint32_t block_number) {
-printf("section3_fix_block(%"PRIu32")\n", block_number);
-	if (data_block_is_in_flash_section(block_number, FUNCT1_FLASH_SECTION)) {
+	if (data_block_is_in_flash_section(block_number, FUNCT3_FLASH_SECTION)) {
 		section1_fix_block(block_number);
 	}else
 	{
-		fix_block(block_number);
+		fix_block(block_number, crc_fix3);
 	}
 }
 
-uint32_t crc_check3(uint32_t block_number) {
-	printf("crc_check3(%"PRIu32")\n", block_number);
-	uint8_t* ptr = (uint8_t*)BLOCK_START(block_number);
-	uint8_t* crc_ptr = &ptr[sizeof(block_t) - sizeof(uint32_t)];
-	uint32_t crc, ref_crc;
-
+uint32_t crc_calc3(uint8_t* ptr, uint8_t* crc_ptr) {
 	cm_t crc_model;
 
      crc_model.cm_width = 32;            // 32-bit CRC
@@ -236,14 +244,26 @@ uint32_t crc_check3(uint32_t block_number) {
 		 cm_nxt(&crc_model,*ptr++);
 	}
 
-	crc = cm_crc(&crc_model);
+	return cm_crc(&crc_model);
+}
+
+uint32_t crc_check3(uint32_t block_number) {
+	uint8_t* ptr = (uint8_t*)BLOCK_START(block_number);
+	uint8_t* crc_ptr = &ptr[sizeof(block_t) - sizeof(uint32_t)];
+	uint32_t crc, ref_crc;
+
+	crc = crc_calc3(ptr, crc_ptr);
 	ref_crc = *((uint32_t*)crc_ptr);
-printf("CRC results %"PRIu32" ^ %"PRIu32"\n", crc, ref_crc);
 
 	return (crc ^ ref_crc);
 }
 
+void crc_fix3(uint32_t block_number, error_marker_t* marker) {
+	uint8_t* ptr = (uint8_t*)BLOCK_START(block_number);
+	uint8_t* crc_ptr = &ptr[sizeof(block_t) - sizeof(uint32_t)];
 
-
+	marker->corrected_dword = crc_calc3(ptr, crc_ptr) ^ *((uint32_t*)crc_ptr);
+	marker->pointer = (uint32_t*)crc_ptr;
+}
 
 

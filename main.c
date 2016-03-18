@@ -19,7 +19,7 @@ int main(void) {
 //	NVIC_PriorityGroupConfig( NVIC_PriorityGroup_4 );
 	SCB->AIRCR = AIRCR_VECTKEY_MASK | NVIC_PriorityGroup_4;
 
-    printf("\n*** main: System Started! ***\n\n");
+    printf("\n*** main: System Started @ %"PRIu32"hz ***\n\n", HSE_VALUE);
 
 /*
  * Create a new task and add it to the list of tasks that are ready to run.
