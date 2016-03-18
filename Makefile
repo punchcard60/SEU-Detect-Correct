@@ -1,81 +1,83 @@
-TARGET:=FreeRTOS
-# old root for reference TOOLCHAIN_ROOT ?= ~/stm/gcc-arm-none-eabi-4_9-2015q3
+TARGET := FreeRTOS
+
 ifeq (,$(TOOLCHAIN_ROOT))
 TOOLCHAIN_ROOT := /usr/local
 endif
+
 TOOLCHAIN_ROOT := $(abspath $(TOOLCHAIN_ROOT))
 TOOLCHAIN_BIN := $(TOOLCHAIN_ROOT)/bin
 TOOLCHAIN_PREFIX := arm-none-eabi
 
-HSE_VALUE:=24000000
-OPTLVL:=0
-#DBG:=-g
-DBG:=-g
+STM32F4_DISCO ?= 0
 
-FREERTOS:=$(CURDIR)/FreeRTOS
-STARTUP:=$(CURDIR)/hardware
-REED_SOLOMON:=$(abspath $(CURDIR)/../Reed-Solomon-Packed)
+ifneq ($(STM32F4_DISCO),0)
+  HSE_VALUE ?= 8000000
+  CFLAGS += -DSTM32F4_SYSCLK=16000000 -DSTM32F4_PLL_M=8
+else
+  HSE_VALUE ?= 24000000
+endif
+
+HEAP_IMPL ?= heap_3
+OPTLVL ?= 0
+DBG ?= -g
+
+CMD := $(if $(V),,@)
+
+FREERTOS := FreeRTOS
+HW_DIR := hardware
+REED_SOLOMON := ../Reed-Solomon-Packed
 RS_SRC := $(REED_SOLOMON)/src
+SEU_DIR := seu
+BUILD_DIR := build
+SEU_SRC_DIR := $(SEU_DIR)/src
+SEU_GEN_DIR := $(BUILD_DIR)/gen
 
-INCLUDE+=-I$(CURDIR)/config
-INCLUDE+=-I$(CURDIR)/hardware
-INCLUDE+=-Iseu/include
-INCLUDE+=-I$(REED_SOLOMON)/include
-INCLUDE+=-I$(CURDIR)/lib/CMSIS/Device/ST/STM32F4xx/Include
-INCLUDE+=-I$(CURDIR)/lib/CMSIS/Include
-INCLUDE+=-I$(CURDIR)/lib/STM32F4xx_StdPeriph_Driver/inc
-INCLUDE+=-I$(CURDIR)/lib/CRC_Generator
-INCLUDE+=-I$(FREERTOS)/include
-INCLUDE+=-I$(FREERTOS)/portable/GCC/ARM_CM4F
+INCLUDE += -Iconfig \
+           -I$(HW_DIR) \
+           -I$(SEU_DIR)/include \
+           -I$(REED_SOLOMON)/include \
+           -Ilib/CMSIS/Device/ST/STM32F4xx/Include \
+           -Ilib/CMSIS/Include \
+           -Ilib/STM32F4xx_StdPeriph_Driver/inc \
+           -Ilib/CRC_Generator \
+           -I$(FREERTOS)/include \
+           -I$(FREERTOS)/portable/GCC/ARM_CM4F
 
-BUILD_DIR = $(CURDIR)/build
-BIN_DIR = $(CURDIR)/binary
-SEU_DIR = $(CURDIR)/seu
-SEU_SRC_DIR = $(SEU_DIR)/src
-SEU_GEN_DIR = $(BUILD_DIR)/gen
+ASRC := $(HW_DIR)/startup_stm32f40_41xxx.s
 
-ASRC:=$(STARTUP)/startup_stm32f40_41xxx.s
-
-#compiled without finstrument-function
-SRC += $(SEU_SRC_DIR)/reboot.c \
-	   $(STARTUP)/system_stm32f4xx.c \
-	   $(CURDIR)/hardware/uart.c \
-	   $(CURDIR)/lib/syscall/syscall.c \
-	   $(RS_SRC)/alpha_to.c \
-       $(RS_SRC)/genpoly.c \
-       $(RS_SRC)/index_of.c \
-	   $(SEU_SRC_DIR)/seu.c \
-	   $(STARTUP)/handlers.c
-
-SRC += main.c
-
-# FreeRTOS sources
-HEAP_IMPL := heap_3
-
-SRC += $(FREERTOS)/list.c \
+SRC += $(wildcard $(SEU_SRC_DIR)/*.c) \
+       $(wildcard $(HW_DIR)/*.c) \
+       lib/syscall/syscall.c \
+       main.c \
+       $(FREERTOS)/list.c \
        $(FREERTOS)/queue.c \
        $(FREERTOS)/tasks.c \
        $(FREERTOS)/timers.c \
        $(FREERTOS)/portable/GCC/ARM_CM4F/port.c \
        $(FREERTOS)/portable/MemMang/$(HEAP_IMPL).c
 
+RS_SRCS := $(wildcard $(RS_SRC)/*.c)
+
 # CRC32 sources
-CRC_SRCS := $(RS_SRC)/alpha_to.c \
-       	    $(RS_SRC)/genpoly.c \
-       	    $(RS_SRC)/index_of.c \
-		    lib/CRC_Generator/main.c
+CRC_SRCS := $(RS_SRCS) \
+            lib/CRC_Generator/main.c
 
-AOBJ:=$(addsuffix .o, $(addprefix $(BUILD_DIR)/, $(basename $(notdir $(ASRC)))))
-OBJ:=$(addsuffix .o, $(addprefix $(BUILD_DIR)/, $(basename $(notdir $(SRC)))))
+OBJ := $(addprefix $(BUILD_DIR)/,$(SRC:.c=.c.o))
+OBJ += $(addprefix $(BUILD_DIR)/RS/,$(notdir $(RS_SRCS:.c=.c.o)))
+AOBJ := $(addprefix $(BUILD_DIR)/,$(ASRC:.s=.s.o))
 
-MCU_FLAGS:=-mcpu=cortex-m4 -mthumb -mlittle-endian -mfpu=fpv4-sp-d16 -mfloat-abi=hard
-COMMONFLAGS=-O$(OPTLVL) $(DBG) -Wall -falign-functions=32 -ffunction-sections -fdata-sections
-CFLAGS=$(COMMONFLAGS) $(MCU_FLAGS) -DSTM32F40_41xxx -DHSE_VALUE="((uint32_t)$(HSE_VALUE))" $(INCLUDE)
-LDLIBS=-lm
-LDFLAGS=$(COMMONFLAGS) $(MCU_FLAGS) -fno-exceptions
+MCU_FLAGS := -mcpu=cortex-m4 -mthumb -mlittle-endian -mfpu=fpv4-sp-d16 -mfloat-abi=hard
+COMMONFLAGS := -O$(OPTLVL) $(DBG) -Wall -falign-functions=32 -ffunction-sections -fdata-sections
+CFLAGS += $(COMMONFLAGS) $(MCU_FLAGS) -DSTM32F40_41xxx -DHSE_VALUE="((uint32_t)$(HSE_VALUE))" $(INCLUDE)
+LDLIBS += -lm
+LDFLAGS += $(COMMONFLAGS) $(MCU_FLAGS) -fno-exceptions
 
-INITIAL_LINKERSCRIPT=$(REED_SOLOMON)/STM32F4xx_FLASH.ld
-SECONDARY_LINKERSCRIPT=-Tbuild/gen/secondary_seu_link.ld
+STEP1_LINKERSCRIPT := $(REED_SOLOMON)/STM32F4xx_FLASH.ld
+STEP2_LINKERSCRIPT := $(SEU_GEN_DIR)/secondary_seu_link.ld
+
+STEP1_ELF := $(BUILD_DIR)/step1.elf
+STEP2_ELF := $(BUILD_DIR)/step2.elf
+FINAL_ELF := $(BUILD_DIR)/$(TARGET).elf
 
 # don't count on having the tools in the PATH...
 CC := $(TOOLCHAIN_BIN)/$(TOOLCHAIN_PREFIX)-gcc
@@ -86,117 +88,65 @@ AR := $(TOOLCHAIN_BIN)/$(TOOLCHAIN_PREFIX)-ar
 GDB := $(TOOLCHAIN_BIN)/$(TOOLCHAIN_PREFIX)-gdb
 READELF := $(TOOLCHAIN_BIN)/$(TOOLCHAIN_PREFIX)-readelf
 
-GCC=gcc #Standard Desktop GCC
+HOST_CC := gcc
+PYTHON := python3
 
-PYTHON = python3
+.PHONY: all flash gdbserver gdb clean
 
-TO_OBJ=$(addsuffix .o, $(addprefix $(BUILD_DIR)/, $(basename $(notdir $(1)))))
+all: $(FINAL_ELF)
 
-.PHONY: all utils clean
-
-all: utils SECONDARY_PROFILER
-
-utils:
+$(BUILD_DIR)/crcGenerator: $(CRC_SRCS)
 	@echo [CC] crcGenerator.c
-	@$(GCC) $(INCLUDE) -g $(CRC_SRCS) -o $(BUILD_DIR)/crcGenerator
+	@test -d $(dir $@) || mkdir -p $(dir $@)
+	$(CMD) $(HOST_CC) $(INCLUDE) -g $(CRC_SRCS) -o $(BUILD_DIR)/crcGenerator
 
-$(call TO_OBJ,$(ASRC)): $(ASRC)
-	@echo [AS] $(notdir $<)
-	@$(AS) -o $@ $^
+$(BUILD_DIR)/%.s.o: %.s
+	@test -d $(dir $@) || mkdir -p $(dir $@)
+	@echo [AS] $<
+	$(CMD) $(AS) -o $@ $^
 
-$(call TO_OBJ,main.c): main.c
-	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $< -c -o $@
+$(BUILD_DIR)/RS/%.c.o: $(RS_SRC)/%.c
+	@test -d $(dir $@) || mkdir -p $(dir $@)
+	@echo [CC] $<
+	$(CMD) $(CC) $(CFLAGS) $< -c -o $@
 
-$(call TO_OBJ,$(STARTUP)/handlers.c): $(STARTUP)/handlers.c
-	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $< -c -o $@
+$(BUILD_DIR)/%.c.o: %.c
+	@test -d $(dir $@) || mkdir -p $(dir $@)
+	@echo [CC] $<
+	$(CMD) $(CC) $(CFLAGS) $< -c -o $@
 
-$(call TO_OBJ,$(SEU_SRC_DIR)/reboot.c): $(SEU_SRC_DIR)/reboot.c
-	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $< -c -o $@
+$(STEP1_ELF): $(AOBJ) $(OBJ)
+	@echo [LD] $(STEP1_ELF)
+	@test -d $(BUILD_DIR) || mkdir -p $(BUILD_DIR)
+	$(CMD) $(CC) -o $(STEP1_ELF) -T$(STEP1_LINKERSCRIPT) $(LDFLAGS) $(AOBJ) $(OBJ) $(LDLIBS)
 
-$(call TO_OBJ,$(STARTUP)/system_stm32f4xx.c): $(STARTUP)/system_stm32f4xx.c
-	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $< -c -o $@
-
-$(call TO_OBJ,$(CURDIR)/hardware/uart.c): $(CURDIR)/hardware/uart.c
-	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $< -c -o $@
-
-$(call TO_OBJ,$(CURDIR)/lib/syscall/syscall.c): $(CURDIR)/lib/syscall/syscall.c
-	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $< -c -o $@
-
-$(call TO_OBJ,$(RS_SRC)/alpha_to.c): $(RS_SRC)/alpha_to.c
-	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $< -c -o $@
-
-$(call TO_OBJ,$(RS_SRC)/genpoly.c): $(RS_SRC)/genpoly.c
-	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $< -c -o $@
-
-$(call TO_OBJ,$(RS_SRC)/index_of.c): $(RS_SRC)/index_of.c
-	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $< -c -o $@
-
-$(call TO_OBJ,$(SEU_SRC_DIR)/seu.c): $(SEU_SRC_DIR)/seu.c
-	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $< -c -o $@
-
-$(call TO_OBJ,$(FREERTOS)/list.c): $(FREERTOS)/list.c
-	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $< -c -o $@
-
-$(call TO_OBJ,$(FREERTOS)/queue.c): $(FREERTOS)/queue.c
-	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $< -c -o $@
-
-$(call TO_OBJ,$(FREERTOS)/tasks.c): $(FREERTOS)/tasks.c
-	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $< -c -o $@
-
-$(call TO_OBJ,$(FREERTOS)/timers.c): $(FREERTOS)/timers.c
-	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $< -c -o $@
-
-$(call TO_OBJ,$(FREERTOS)/portable/GCC/ARM_CM4F/port.c): $(FREERTOS)/portable/GCC/ARM_CM4F/port.c
-	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $< -c -o $@
-
-$(call TO_OBJ,$(FREERTOS)/portable/MemMang/$(HEAP_IMPL).c): $(FREERTOS)/portable/MemMang/$(HEAP_IMPL).c
-	@echo [CC] $(notdir $<)
-	@$(CC) $(CFLAGS) $< -c -o $@
-
-
-INITIAL_COMPILATION: $(AOBJ) $(OBJ)
-	@echo [LD] $(TARGET).elf
-	@test -d $(BIN_DIR) || mkdir -p $(BIN_DIR)
-	@$(CC) -o $(BIN_DIR)/initial$(TARGET).elf -T$(INITIAL_LINKERSCRIPT) $(LDFLAGS) $(AOBJ) $(OBJ) $(LDLIBS)
-
-INITIAL_PROFILER: INITIAL_COMPILATION
+$(STEP2_LINKERSCRIPT): $(STEP1_ELF) $(STEP1_LINKERSCRIPT)
 	@echo "Starting Initial Profiler"
 	@test -d $(SEU_GEN_DIR) || mkdir -p $(SEU_GEN_DIR)
-	@$(READELF) --wide -s binary/initialFreeRTOS.elf | grep " FUNC    " | awk '{print $$3 " " $$8 }' | sort -k 2 | uniq -u  > $(SEU_GEN_DIR)/fullMap.data
-	@awk '/\*-{6}\*/{x++}{print >"$(SEU_GEN_DIR)/template_half_" x ".ld" }' x=0 $(INITIAL_LINKERSCRIPT) #Split Linker script in half
-	@$(PYTHON) $(SEU_DIR)/initial_profiler.py
+	$(CMD) $(READELF) --wide -s $(STEP1_ELF) | grep " FUNC    " | awk '{print $$3 " " $$8 }' | sort -k 2 | uniq -u  > $(SEU_GEN_DIR)/fullMap.data
+	$(CMD) awk '/\*-{6}\*/{x++}{print >"$(SEU_GEN_DIR)/template_half_" x ".ld" }' x=0 $(STEP1_LINKERSCRIPT) #Split Linker script in half
+	$(CMD) $(PYTHON) $(SEU_DIR)/initial_profiler.py
 	@echo "initial Profiler Completed"
 
-SECONDARY_COMPILATION: INITIAL_PROFILER
+$(STEP2_ELF): $(STEP2_LINKERSCRIPT)
 	@echo "Starting Secondary Complilation"
-	@$(CC) -Wl,-Map,$(TARGET).map -o $(BIN_DIR)/final$(TARGET).elf $(SECONDARY_LINKERSCRIPT) $(LDFLAGS) $(AOBJ) $(OBJ) $(LDLIBS)
+	$(CMD) $(CC) -Wl,-Map,$(BUILD_DIR)/$(TARGET).map -o $(STEP2_ELF) -T$(STEP2_LINKERSCRIPT) $(LDFLAGS) $(AOBJ) $(OBJ) $(LDLIBS)
 	@echo "Secondary Complilation Completed"
 
-SECONDARY_PROFILER: SECONDARY_COMPILATION
+$(FINAL_ELF): $(STEP2_ELF) $(BUILD_DIR)/crcGenerator
 	@echo "Starting Final Profiler"
-	$(eval textOffset:=$(shell $(READELF) -S $(BIN_DIR)/final$(TARGET).elf | grep ".text  " | awk '{print $$6}'))
+	$(eval textOffset:=$(shell $(READELF) -S $(STEP2_ELF) | grep ".text  " | awk '{print $$6}'))
 	@echo "Starting CRC_Generator/elf modifier"
-	./build/crcGenerator $(BIN_DIR)/final$(TARGET).elf $(textOffset) $(BIN_DIR)/encoded$(TARGET).elf
+	$(CMD) $(BUILD_DIR)/crcGenerator $(STEP2_ELF) $(textOffset) $(FINAL_ELF)
 
-.PHONY: clean
+flash: $(FINAL_ELF)
+	$(CMD) openocd -f config/openocd.cfg -f config/my_stm32f4.cfg -c "myFlash $(FINAL_ELF)"
+
+gdbserver:
+	$(CMD) openocd -f config/openocd.cfg
+
+gdb: $(FINAL_ELF)
+	$(CMD) $(GDB) $(FINAL_ELF)
 
 clean:
-	@echo [RM] BUILD DIR
-	@rm -rf $(BUILD_DIR)/*
-	@echo [RM] BIN DIR
-	@rm -rf $(BIN_DIR)/*
+	$(CMD) rm -rf $(BUILD_DIR)

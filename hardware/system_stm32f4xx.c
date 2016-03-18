@@ -368,7 +368,11 @@
 /************************* PLL Parameters *************************************/
 #if defined(STM32F40_41xxx) || defined(STM32F427_437xx) || defined(STM32F429_439xx) || defined(STM32F401xx) || defined(STM32F469_479xx)
  /* PLL_VCO = (HSE_VALUE or HSI_VALUE / PLL_M) * PLL_N */
+#ifdef STM32F4_PLL_M
+ #define PLL_M STM32F4_PLL_M
+#else
  #define PLL_M      25
+#endif // STM32F4_PLL_M
 #elif defined (STM32F446xx)
  #define PLL_M      8
 #elif defined (STM32F410xx) || defined (STM32F411xE)
@@ -431,7 +435,11 @@
   */
 
 #if defined(STM32F40_41xxx)
+#ifdef STM32F4_SYSCLK
+  uint32_t SystemCoreClock = STM32F4_SYSCLK;
+#else
   uint32_t SystemCoreClock = 168000000;
+#endif
 #endif /* STM32F40_41xxx */
 
 #if defined(STM32F427_437xx) || defined(STM32F429_439xx) || defined(STM32F446xx) || defined(STM32F469_479xx)
