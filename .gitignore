@@ -33,6 +33,7 @@
 # Debug files
 *.dSYM/
 *.map
+.gdbinit
 
 # Compile Folders
 bin/
