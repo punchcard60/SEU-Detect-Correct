@@ -156,7 +156,15 @@ def writeScript():
                 writeFunction(crc_fix3)
 
         if not section2.written:
-            outputFile.write(functionPadFormat % (((PROFILE2_BLOCK - blknum) * BLOCKSIZE) - sectionbytes))
+            blknum += 1
+            blktrailer = bytesAvailable + BLOCKTRAILER
+            outputFile.write(blockFinishAndStartNew.format(blktrailer, blknum))
+            bytesAvailable = PAYLOADSIZE
+            while blknum != PROFILE2_BLOCK:
+                blknum += 1
+                blktrailer = bytesAvailable + BLOCKTRAILER
+                outputFile.write(blockFinishAndStartNew.format(blktrailer, blknum))
+                bytesAvailable = PAYLOADSIZE
             writeFunction(section2)
             writeFunction(section2fix)
             writeFunction(crc_calc2)
@@ -164,7 +172,15 @@ def writeScript():
             writeFunction(crc_fix2)
 
         if not section3.written:
-            outputFile.write(functionPadFormat % (((PROFILE3_BLOCK - blknum) * BLOCKSIZE) - sectionbytes))
+            blknum += 1
+            blktrailer = bytesAvailable + BLOCKTRAILER
+            outputFile.write(blockFinishAndStartNew.format(blktrailer, blknum))
+            bytesAvailable = PAYLOADSIZE
+            while blknum != PROFILE3_BLOCK:
+                blknum += 1
+                blktrailer = bytesAvailable + BLOCKTRAILER
+                outputFile.write(blockFinishAndStartNew.format(blktrailer, blknum))
+                bytesAvailable = PAYLOADSIZE
             writeFunction(section3)
             writeFunction(section3fix)
             writeFunction(crc_calc3)
