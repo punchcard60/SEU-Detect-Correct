@@ -64,10 +64,22 @@ int main(int argc, char** argv) {
         fread(inputData, sizeof(char), inputFileLen, inputFile);
     }
 
-    uint32_t text_start_offs = strtol(argv[2], NULL, 16);
-	uint32_t block_start_offset = text_start_offs - *((uint32_t*)(inputData + text_start_offs));
-    block_t* blocks = (block_t*)(inputData + block_start_offset);
-    uint32_t blockCount = *((uint32_t*)(inputData + text_start_offs + 4)); //pointer to symbol defined in Linker Script
+    uint32_t text_start_offs = strtol(argv[2], NULL, 16); /* The offset of the .text section in the executable
+														   * is passed into the CRCGenerator as argv[2]
+														   */
+	/* The first 4 bytes in the text section give the relative offset of the beginning of the ISR vector table
+	 * which is located just before the .text section in the executable file.
+	 */
+	uint32_t block_start_offset = text_start_offs - *((uint32_t*)(((uint32_t)inputData) + text_start_offs));
+
+	/* The start of the first block should be at block_start_offset into the executable file.
+	 */
+    block_t* blocks = (block_t*)(((uint32_t)inputData) + block_start_offset);
+
+	/* the next four bytes after the relative offset of the beginning of the ISR vector table is the count of
+	 * blocks contained in this file.
+	 */
+    uint32_t blockCount = *((uint32_t*)(((uint32_t)inputData) + text_start_offs + 4)); //pointer to symbol defined in Linker Script
 
     int idx, numBytes;
 	numBytes = (sizeof(block_t) - sizeof(uint32_t));

@@ -220,7 +220,7 @@ inline static void INLINE_ATTRIBUTE fix_block(uint32_t block_number, crc_fix_t c
 	error_marker_t* sorted_corrections[RS_MAX_CORRECTIONS];
 	error_marker_t* ptr;
 
-	int	correction_count;
+	int	correction_count = 0;
 	int i, swaps;
 	uint32_t flash_section;
 

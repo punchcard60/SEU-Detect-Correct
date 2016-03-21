@@ -92,23 +92,38 @@ def writeScript():
 
         section1 = fnData.pop('section1_check_block')
         section1fix = fnData.pop('section1_fix_block')
+		crc_calc1 = fnData.pop('crc_calc1')
+		crc_check1 = fnData.pop('crc_check1')
+		crc_fix1 = fnData.pop('crc_fix1')
+
         section2 = fnData.pop('section2_check_block')
         section2fix = fnData.pop('section2_fix_block')
+		crc_calc2 = fnData.pop('crc_calc2')
+		crc_check2 = fnData.pop('crc_check2')
+		crc_fix2 = fnData.pop('crc_fix2')
+
         section3 = fnData.pop('section3_check_block')
         section3fix = fnData.pop('section3_fix_block')
-        blknum = 0
+        crc_calc3 = fnData.pop('crc_calc3')
+        crc_check3 = fnData.pop('crc_check3')
+        crc_fix3 = fnData.pop('crc_fix3')
 
-        section1.writeEntry(outputFile)
-        section1fix.writeEntry(outputFile)
+        blknum = 0
 
         # block[0] contains the block count which is 4 bytes long and
         # the pointer to the start of the blocks which is 4 bytes long
-        bytesAvailable = PAYLOADSIZE - 8 - section1.bytes - section1fix.bytes
+        bytesAvailable = PAYLOADSIZE - 8
 
         def writeFunction(data):
             nonlocal bytesAvailable
             data.writeEntry(outputFile)
             bytesAvailable -= data.bytes
+
+        writeFunction(section1)
+        writeFunction(section1fix)
+		writeFunction(crc_calc1)
+		writeFunction(crc_check1)
+		writeFunction(crc_fix1)
 
         while len(fnData) > 0:
             name = getBiggestFunction(bytesAvailable)
@@ -130,19 +145,31 @@ def writeScript():
             if blknum == PROFILE2_BLOCK:
                 writeFunction(section2)
                 writeFunction(section2fix)
+				writeFunction(crc_calc2)
+				writeFunction(crc_check2)
+				writeFunction(crc_fix2)
             elif blknum == PROFILE3_BLOCK:
                 writeFunction(section3)
                 writeFunction(section3fix)
+				writeFunction(crc_calc3)
+				writeFunction(crc_check3)
+				writeFunction(crc_fix3)
 
         if not section2.written:
-            outputFile.write(functionPadFormat % (((PROFILE2_BLOCK - blknum) * BLOCKSIZE) - section2.bytes - section2fix.bytes))
+            outputFile.write(functionPadFormat % (((PROFILE2_BLOCK - blknum) * BLOCKSIZE) - sectionbytes))
             writeFunction(section2)
             writeFunction(section2fix)
+			writeFunction(crc_calc2)
+			writeFunction(crc_check2)
+			writeFunction(crc_fix2)
 
         if not section3.written:
-            outputFile.write(functionPadFormat % (((PROFILE3_BLOCK - blknum) * BLOCKSIZE) - section3.bytes - section3fix.bytes))
+            outputFile.write(functionPadFormat % (((PROFILE3_BLOCK - blknum) * BLOCKSIZE) - sectionbytes))
             writeFunction(section3)
             writeFunction(section3fix)
+			writeFunction(crc_calc3)
+			writeFunction(crc_check3)
+			writeFunction(crc_fix3)
 
         for line in tailData: # write second half of linkerscript
             outputFile.write('%s' % line)
