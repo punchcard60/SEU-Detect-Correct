@@ -90,14 +90,15 @@
 #endif
 
 
-#define configUSE_NEWLIB_REENTRANT 1
+/* #define configUSE_NEWLIB_REENTRANT 1 */
 
 #define configUSE_PREEMPTION			1
 #define configUSE_IDLE_HOOK				0
 #define configUSE_TICK_HOOK				0
 #define configUSE_TICKLESS_IDLE         0
 #define configCPU_CLOCK_HZ				( SystemCoreClock )
-#define configTICK_RATE_HZ				( ( TickType_t ) 100 )
+/* #define configSYSTICK_CLOCK_HZ          ( SystemCoreClock / 8 ) */
+#define configTICK_RATE_HZ				( ( TickType_t ) 1000 )
 #define configMAX_PRIORITIES			( 5 )
 #define configMINIMAL_STACK_SIZE		( ( unsigned short ) 1024 )
 #define configTOTAL_HEAP_SIZE			( ( size_t ) ( 75 * 1024 ) )
@@ -109,7 +110,7 @@
 #define configQUEUE_REGISTRY_SIZE		8
 #define configCHECK_FOR_STACK_OVERFLOW	2
 #define configUSE_RECURSIVE_MUTEXES		1
-#define configUSE_MALLOC_FAILED_HOOK	1
+#define configUSE_MALLOC_FAILED_HOOK	0
 #define configUSE_APPLICATION_TASK_TAG	0
 #define configUSE_COUNTING_SEMAPHORES	1
 #define configGENERATE_RUN_TIME_STATS	0
@@ -122,11 +123,11 @@
 #define configUSE_TIMERS				1
 #define configTIMER_TASK_PRIORITY		( 2 )
 #define configTIMER_QUEUE_LENGTH		100  /* was 10 */
-#define configTIMER_TASK_STACK_DEPTH	( configMINIMAL_STACK_SIZE * 4 ) /* was * 2 */
+#define configTIMER_TASK_STACK_DEPTH	( configMINIMAL_STACK_SIZE * 2 ) /* was * 2 */
 
 /* Set the following definitions to 1 to include the API function, or zero
 to exclude the API function. */
-#define INCLUDE_xTimerPendFunctionCall  1
+#define INCLUDE_xTimerPendFunctionCall  0
 
 #define INCLUDE_vTaskPrioritySet		0
 #define INCLUDE_uxTaskPriorityGet		0

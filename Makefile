@@ -1,23 +1,29 @@
 TARGET := FreeRTOS
 
 ifeq (,$(TOOLCHAIN_ROOT))
-TOOLCHAIN_ROOT := /usr/local
+TOOLCHAIN_ROOT := /usr
 endif
 
 TOOLCHAIN_ROOT := $(abspath $(TOOLCHAIN_ROOT))
 TOOLCHAIN_BIN := $(TOOLCHAIN_ROOT)/bin
 TOOLCHAIN_PREFIX := arm-none-eabi
 
-STM32F4_DISCO ?= 0
-
-ifneq ($(STM32F4_DISCO),0)
-  HSE_VALUE ?= 8000000
-  CFLAGS += -DSTM32F4_SYSCLK=16000000 -DSTM32F4_PLL_M=8
-else
-  HSE_VALUE ?= 24000000
+ifneq ($(strip $(STM32F4_DISCO)),)
+  HSE_VALUE := 8000000
 endif
 
-HEAP_IMPL ?= heap_3
+ifeq ($(HSE_VALUE),8000000)
+  CFLAGS += -DSTM32F4_SYSCLK=16800000 -DSTM32F4_PLL_M=4 -DSTM32F4_PLL_N=168  -DSTM32F4_PLL_P=2
+else ifeq ($(HSE_VALUE),16000000)
+  CFLAGS += -DSTM32F4_SYSCLK=16800000 -DSTM32F4_PLL_M=8 -DSTM32F4_PLL_N=168  -DSTM32F4_PLL_P=2
+else ifeq ($(HSE_VALUE),24000000)
+  CFLAGS += -DSTM32F4_SYSCLK=16800000 -DSTM32F4_PLL_M=12 -DSTM32F4_PLL_N=168  -DSTM32F4_PLL_P=2
+else ifeq ($(HSE_VALUE),25000000)
+  CFLAGS += -DSTM32F4_SYSCLK=16800000 -DSTM32F4_PLL_M=25 -DSTM32F4_PLL_N=336  -DSTM32F4_PLL_P=2
+endif
+
+UART_BAUD ?= 115200
+HEAP_IMPL ?= heap_4
 OPTLVL ?= 0
 DBG ?= -g
 
@@ -32,7 +38,8 @@ BUILD_DIR := build
 SEU_SRC_DIR := $(SEU_DIR)/src
 SEU_GEN_DIR := $(BUILD_DIR)/gen
 
-INCLUDE += -Iconfig \
+INCLUDE += -I/usr/lib/gcc/arm-none-eabi/5.3.0/include \
+		   -Iconfig \
            -I$(HW_DIR) \
            -I$(SEU_DIR)/include \
            -I$(REED_SOLOMON)/include \
@@ -40,6 +47,7 @@ INCLUDE += -Iconfig \
            -Ilib/CMSIS/Include \
            -Ilib/STM32F4xx_StdPeriph_Driver/inc \
            -Ilib/CRC_Generator \
+		   -Ilib/dprint \
            -I$(FREERTOS)/include \
            -I$(FREERTOS)/portable/GCC/ARM_CM4F
 
@@ -47,7 +55,8 @@ ASRC := $(HW_DIR)/startup_stm32f40_41xxx.s
 
 SRC += $(wildcard $(SEU_SRC_DIR)/*.c) \
        $(wildcard $(HW_DIR)/*.c) \
-       lib/syscall/syscall.c \
+	   lib/dprint/dprint.c \
+	   lib/syscall/syscall.c \
        main.c \
        $(FREERTOS)/list.c \
        $(FREERTOS)/queue.c \
@@ -67,16 +76,14 @@ OBJ += $(addprefix $(BUILD_DIR)/RS/,$(notdir $(RS_SRCS:.c=.c.o)))
 AOBJ := $(addprefix $(BUILD_DIR)/,$(ASRC:.s=.s.o))
 
 MCU_FLAGS := -mcpu=cortex-m4 -mthumb -mlittle-endian -mfpu=fpv4-sp-d16 -mfloat-abi=hard
-COMMONFLAGS := -O$(OPTLVL) $(DBG) -Wall -falign-functions=32 -ffunction-sections -fdata-sections
-CFLAGS += $(COMMONFLAGS) $(MCU_FLAGS) -DSTM32F40_41xxx -DHSE_VALUE="((uint32_t)$(HSE_VALUE))" $(INCLUDE)
+COMMONFLAGS := -O$(OPTLVL) $(DBG) -Wall -falign-functions=4
+CFLAGS += $(COMMONFLAGS) $(MCU_FLAGS) -DSTM32F40_41xxx -DHSE_VALUE=$(HSE_VALUE) $(INCLUDE)
 LDLIBS += -lm
 LDFLAGS += $(COMMONFLAGS) $(MCU_FLAGS) -fno-exceptions
 
-STEP1_LINKERSCRIPT := $(REED_SOLOMON)/STM32F4xx_FLASH.ld
-STEP2_LINKERSCRIPT := $(SEU_GEN_DIR)/secondary_seu_link.ld
+STEP1_LINKERSCRIPT := SEU-Detect-Correct.ld
 
 STEP1_ELF := $(BUILD_DIR)/step1.elf
-STEP2_ELF := $(BUILD_DIR)/step2.elf
 FINAL_ELF := $(BUILD_DIR)/$(TARGET).elf
 
 # don't count on having the tools in the PATH...
@@ -89,7 +96,6 @@ GDB := $(TOOLCHAIN_BIN)/$(TOOLCHAIN_PREFIX)-gdb
 READELF := $(TOOLCHAIN_BIN)/$(TOOLCHAIN_PREFIX)-readelf
 
 HOST_CC := gcc
-PYTHON := python3
 
 .PHONY: all flash gdbserver gdb clean
 
@@ -118,26 +124,14 @@ $(BUILD_DIR)/%.c.o: %.c
 $(STEP1_ELF): $(AOBJ) $(OBJ)
 	@echo [LD] $(STEP1_ELF)
 	@test -d $(BUILD_DIR) || mkdir -p $(BUILD_DIR)
-	$(CMD) $(CC) -o $(STEP1_ELF) -T$(STEP1_LINKERSCRIPT) $(LDFLAGS) $(AOBJ) $(OBJ) $(LDLIBS)
+	$(CMD) $(CC) -o $(STEP1_ELF) -Wl,-Map,output.map -T$(STEP1_LINKERSCRIPT) $(LDFLAGS) $(AOBJ) $(OBJ) $(LDLIBS)
 
-$(STEP2_LINKERSCRIPT): $(STEP1_ELF) $(STEP1_LINKERSCRIPT)
-	@echo "Starting Initial Profiler"
-	@test -d $(SEU_GEN_DIR) || mkdir -p $(SEU_GEN_DIR)
-	$(CMD) $(READELF) --wide -s $(STEP1_ELF) | grep " FUNC    " | awk '{print $$3 " " $$8 }' | sort -k 2 | uniq -u  > $(SEU_GEN_DIR)/fullMap.data
-	$(CMD) awk '/\*-{6}\*/{x++}{print >"$(SEU_GEN_DIR)/template_half_" x ".ld" }' x=0 $(STEP1_LINKERSCRIPT) #Split Linker script in half
-	$(CMD) $(PYTHON) $(SEU_DIR)/initial_profiler.py
-	@echo "initial Profiler Completed"
-
-$(STEP2_ELF): $(STEP2_LINKERSCRIPT)
-	@echo "Starting Secondary Complilation"
-	$(CMD) $(CC) -Wl,-Map,$(BUILD_DIR)/$(TARGET).map -o $(STEP2_ELF) -T$(STEP2_LINKERSCRIPT) $(LDFLAGS) $(AOBJ) $(OBJ) $(LDLIBS)
-	@echo "Secondary Complilation Completed"
-
-$(FINAL_ELF): $(STEP2_ELF) $(BUILD_DIR)/crcGenerator
-	@echo "Starting Final Profiler"
-	$(eval textOffset:=$(shell $(READELF) -S $(STEP2_ELF) | grep ".text  " | awk '{print $$6}'))
+$(FINAL_ELF): $(STEP1_ELF) $(STEP1_LINKERSCRIPT) $(BUILD_DIR)/crcGenerator
+	@echo "Starting Profiler"
+	$(eval textOffset:=$(shell $(READELF) -S $(STEP1_ELF) | grep ".isr_vector" | awk '{print $$6}'))
+	$(eval eccOffset:=$(shell $(READELF) -S $(STEP1_ELF) | grep ".ecc_data" | awk '{print $$5}'))
 	@echo "Starting CRC_Generator/elf modifier"
-	$(CMD) $(BUILD_DIR)/crcGenerator $(STEP2_ELF) $(textOffset) $(FINAL_ELF)
+	$(BUILD_DIR)/crcGenerator $(STEP1_ELF) $(textOffset) $(eccOffset) $(FINAL_ELF)
 
 flash: $(FINAL_ELF)
 	$(CMD) openocd -f config/openocd.cfg -f config/my_stm32f4.cfg -c "myFlash $(FINAL_ELF)"

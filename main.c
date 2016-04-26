@@ -1,7 +1,7 @@
 #include <stm32f4xx.h>
 #include <FreeRTOS.h>
 #include <task.h>
-#include <stdio.h>
+#include <dprint.h>
 #include <inttypes.h>
 #include <seu.h>
 
@@ -17,15 +17,18 @@ int main(void) {
     uint8_t ret;
 
     SCB->AIRCR = AIRCR_VECTKEY_MASK | NVIC_PriorityGroup_4;
-    dprint("\n*** main: System Started @ %"PRIu32"hz ***\n\n", HSE_VALUE);
+    dprint("\n*** main: System Started @ %"PRIu32"hz ***\n", HSE_VALUE);
 
 /*
  * Create a new task and add it to the list of tasks that are ready to run.
  */
 
+        dprint("Creating worker task.\n");
     ret = xTaskCreate( test_FPU_test, "FPU", (uint16_t)(configMINIMAL_STACK_SIZE * 4), NULL, ((UBaseType_t)configTIMER_TASK_PRIORITY), NULL);
     if (ret == pdPASS) {
-        dprint("FPU task created\nStarting Scheduler\n");
+        dprint("Enabling interrupts.\n");
+        portENABLE_INTERRUPTS();
+        dprint("Starting Scheduler.\n");
         vTaskStartScheduler();  // should never return
     } else {
         dprint("System Error!\n");
@@ -87,14 +90,10 @@ void vApplicationStackOverflowHook(xTaskHandle pxTask, signed char *pcTaskName) 
 }
 
 void test_FPU_test(void* p) {
-    int x;
     for (;;) {
-        dprint("FPU test.\n");
-
-        for(x=0; x<2000000; x++) { }
-
         dprint("FPU delay.\n");
         vTaskDelay(1000);
+        dprint("FPU test.\n");
     }
 }
 

@@ -48,14 +48,14 @@ struct tms {
 	int a;
 };
 
-int __attribute__((no_instrument_function)) _times_r(struct _reent *r, struct tms *buf)
+int _times_r(struct _reent *r, struct tms *buf)
 {
         return -1;
 }
 
 /***************************************************************************/
 
-int __attribute__((no_instrument_function)) _read_r (struct _reent *r, int file, char * ptr, int len)
+int _read_r (struct _reent *r, int file, char * ptr, int len)
 {
   r = r;
   file = file;
@@ -68,7 +68,7 @@ int __attribute__((no_instrument_function)) _read_r (struct _reent *r, int file,
 
 /***************************************************************************/
 
-int __attribute__((no_instrument_function)) _lseek_r (struct _reent *r, int file, int ptr, int dir)
+int _lseek_r (struct _reent *r, int file, int ptr, int dir)
 {
   r = r;
   file = file;
@@ -80,7 +80,7 @@ int __attribute__((no_instrument_function)) _lseek_r (struct _reent *r, int file
 
 /***************************************************************************/
 
-int __attribute__((no_instrument_function)) _write_r (struct _reent *r, int file, char * ptr, int len)
+int _write_r (struct _reent *r, int file, char * ptr, int len)
 {
   r = r;
   file = file;
@@ -117,7 +117,7 @@ int __attribute__((no_instrument_function)) _write_r (struct _reent *r, int file
 
 /***************************************************************************/
 
-int __attribute__((no_instrument_function)) _close_r (struct _reent *r, int file)
+int _close_r (struct _reent *r, int file)
 {
   return 0;
 }
@@ -125,11 +125,11 @@ int __attribute__((no_instrument_function)) _close_r (struct _reent *r, int file
 /***************************************************************************/
 
 /* Register name faking - works in collusion with the linker.  */
-register char * stack_ptr asm ("sp");
+register char * stack_ptr __asm ("sp");
 
-caddr_t __attribute__((no_instrument_function)) _sbrk_r (struct _reent *r, int incr)
+caddr_t _sbrk_r (struct _reent *r, int incr)
 {
-  extern char   end asm ("end"); /* Defined by the linker.  */
+  extern char   end __asm ("end"); /* Defined by the linker.  */
   static char * heap_end;
   char *        prev_heap_end;
 
@@ -161,7 +161,7 @@ caddr_t __attribute__((no_instrument_function)) _sbrk_r (struct _reent *r, int i
 
 /***************************************************************************/
 
-int __attribute__((no_instrument_function)) _fstat_r (struct _reent *r, int file, struct stat * st)
+int _fstat_r (struct _reent *r, int file, struct stat * st)
 {
   r = r;
   file = file;
@@ -173,7 +173,7 @@ int __attribute__((no_instrument_function)) _fstat_r (struct _reent *r, int file
 
 /***************************************************************************/
 
-int __attribute__((no_instrument_function)) _isatty_r(struct _reent *r, int fd)
+int _isatty_r(struct _reent *r, int fd)
 {
   r = r;
   fd = fd;

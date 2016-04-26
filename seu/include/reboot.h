@@ -33,7 +33,6 @@ typedef struct {
 } reboot_block_t;
 
 #define SEU_FIX_SIGNATURE 0x87654321
-#define BLOCK_COUNT 	((896 * 1024) / 13312) /* 68 */
 
 extern void seu_start_check(void);
 

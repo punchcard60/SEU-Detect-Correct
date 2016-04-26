@@ -399,10 +399,14 @@
 #endif /* STM32F427_437x || STM32F429_439xx || STM32F446xx || STM32F469_479xx */
 
 #if defined (STM32F40_41xxx)
-#define PLL_N      336
-/* SYSCLK = PLL_VCO / PLL_P */
-#define PLL_P      2
-#endif /* STM32F40_41xxx */
+#ifdef STM32F4_PLL_N
+ #define PLL_N STM32F4_PLL_N
+ #define PLL_P STM32F4_PLL_P
+#else
+ #define PLL_N      336
+ #define PLL_P      2
+#endif // STM32F4_PLL_N
+#endif // STM32F40_41xxx
 
 #if defined(STM32F401xx)
 #define PLL_N      336

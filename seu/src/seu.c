@@ -19,10 +19,18 @@
 #include <timers.h>
 #include <stm32f4xx.h>
 #include <seu.h>
-#include <stdarg.h>
-#include <stdio.h>
+#include <dprint.h>
+#include <uart.h>
 #include <inttypes.h>
 #include <crcmodel.h>
+
+uint32_t __attribute__((section(".rs_parity"))) rs_parity[1024*1024*5/13311*2];
+uint32_t __attribute__((section(".crc_data"))) crc_data[1024*1024/13311];
+
+uint32_t* RS_DATA = ((uint32_t*)(((uint32_t)(&RS_DATA_START)) + FLASH_BASE));
+uint32_t* RS_PARITY = ((uint32_t*)(((uint32_t)(&RS_PARITY_START)) + FLASH_BASE));
+uint32_t* CRCs = ((uint32_t*)(((uint32_t)(&CRC_START)) + FLASH_BASE));
+uint32_t BLOCK_COUNT;
 
 const uint32_t FlashSections[FLASH_SECTIONS + 1] = {
     FLASH_BASE,
@@ -44,7 +52,9 @@ void seu_timer(TimerHandle_t pxTimer);
 
 void seu_init(void) {
     dprint("seu_init()\n");
-    htimer = xTimerCreate("SEU", 300, pdTRUE, NULL, seu_timer);
+	BLOCK_COUNT = *((uint32_t*)(&RS_BLOCK_COUNT));
+    dprint("block count = %"PRIu32"\n", BLOCK_COUNT);
+    htimer = xTimerCreate("SEU", 30, pdTRUE, NULL, seu_timer);
     dprint("timer created\n");
     xTimerStart(htimer, 0);
     dprint("timer started\n");
@@ -55,6 +65,7 @@ void seu_timer(TimerHandle_t pxTimer) {
 	uint32_t i = 0;
 
 	dprint("Block Check");
+if (i>0) {
 	while (i <= FUNCT2_BLOCK) {
 		section3_check_block(i++);
 	}
@@ -62,19 +73,8 @@ void seu_timer(TimerHandle_t pxTimer) {
 		section1_check_block(i++);
 	}
 }
-
-void dprint(const char *fmt, ...)
-{
-    static char buff[256];
-    va_list args;
-    va_start(args, fmt);
-
-    int len = vsprintf(buff, fmt, args);
-    buff[len] = '\0';
-    puts(buff);
-
-    va_end(args);
 }
+
 /**************************************************************************
  *
  *     SECTION 1   SECTION 1   SECTION 1   SECTION 1   SECTION 1   SECTION 1
@@ -142,7 +142,7 @@ void crc_fix1(uint32_t block_number, error_marker_t* marker) {
 	uint8_t* ptr = (uint8_t*)BLOCK_START(block_number);
 	uint8_t* crc_ptr = &ptr[sizeof(block_t) - sizeof(uint32_t)];
 
-	marker->corrected_dword = crc_calc1(ptr, crc_ptr) ^ *((uint32_t*)crc_ptr);
+	marker->corrected_word = crc_calc1(ptr, crc_ptr) ^ *((uint32_t*)crc_ptr);
 	marker->pointer = (uint32_t*)crc_ptr;
 }
 
@@ -213,7 +213,7 @@ void crc_fix2(uint32_t block_number, error_marker_t* marker) {
 	uint8_t* ptr = (uint8_t*)BLOCK_START(block_number);
 	uint8_t* crc_ptr = &ptr[sizeof(block_t) - sizeof(uint32_t)];
 
-	marker->corrected_dword = crc_calc2(ptr, crc_ptr) ^ *((uint32_t*)crc_ptr);
+	marker->corrected_word = crc_calc2(ptr, crc_ptr) ^ *((uint32_t*)crc_ptr);
 	marker->pointer = (uint32_t*)crc_ptr;
 }
 
@@ -284,7 +284,7 @@ void crc_fix3(uint32_t block_number, error_marker_t* marker) {
 	uint8_t* ptr = (uint8_t*)BLOCK_START(block_number);
 	uint8_t* crc_ptr = &ptr[sizeof(block_t) - sizeof(uint32_t)];
 
-	marker->corrected_dword = crc_calc3(ptr, crc_ptr) ^ *((uint32_t*)crc_ptr);
+	marker->corrected_word = crc_calc3(ptr, crc_ptr) ^ *((uint32_t*)crc_ptr);
 	marker->pointer = (uint32_t*)crc_ptr;
 }
 

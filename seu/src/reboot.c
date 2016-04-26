@@ -1,13 +1,13 @@
 #include <reboot.h>
 #include <uart.h>
 #include <inttypes.h>
-#include <stdio.h>
+#include <dprint.h>
 #include <seu.h>
 
 void seu_start_check(void)
 {
 	uart_init();
-	dprint("accessing backup SRAM\n");
+	dprint("accessing backup SRAM");
 
 	/* Get access to the 4K of SRAM in the backup domain */
     RCC->APB1ENR |= RCC_APB1ENR_PWREN;

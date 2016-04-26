@@ -33,8 +33,6 @@
 #define NULL ((void*)0)
 #endif
 
-void dprint(const char *fmt, ...);
-
 extern void seu_init(void);
 extern void seu_start_check(void);
 
@@ -67,21 +65,21 @@ typedef struct block {
 
 #define CRC_EXPIRE_TIME  2000 /* In milliseconds */
 
-extern void section1_check_block(uint32_t block_number);
-extern void section2_check_block(uint32_t block_number);
-extern void section3_check_block(uint32_t block_number);
+extern void __attribute__((section(".section1"))) section1_check_block(uint32_t block_number);
+extern void __attribute__((section(".text"))) section2_check_block(uint32_t block_number);
+extern void __attribute__((section(".section3"))) section3_check_block(uint32_t block_number);
 
-extern uint32_t crc_calc1(uint8_t* ptr, uint8_t* crc_ptr);
-extern uint32_t crc_calc2(uint8_t* ptr, uint8_t* crc_ptr);
-extern uint32_t crc_calc2(uint8_t* ptr, uint8_t* crc_ptr);
+extern uint32_t __attribute__((section(".section1"))) crc_calc1(uint8_t* ptr, uint8_t* crc_ptr);
+extern uint32_t __attribute__((section(".text"))) crc_calc2(uint8_t* ptr, uint8_t* crc_ptr);
+extern uint32_t __attribute__((section(".section3"))) crc_calc2(uint8_t* ptr, uint8_t* crc_ptr);
 
-extern uint32_t crc_check1(uint32_t block_number);
-extern uint32_t crc_check2(uint32_t block_number);
-extern uint32_t crc_check3(uint32_t block_number);
+extern uint32_t __attribute__((section(".section1"))) crc_check1(uint32_t block_number);
+extern uint32_t __attribute__((section(".text"))) crc_check2(uint32_t block_number);
+extern uint32_t __attribute__((section(".section3"))) crc_check3(uint32_t block_number);
 
-extern void crc_fix1(uint32_t block_number, error_marker_t* marker);
-extern void crc_fix2(uint32_t block_number, error_marker_t* marker);
-extern void crc_fix3(uint32_t block_number, error_marker_t* marker);
+extern void __attribute__((section(".section1"))) crc_fix1(uint32_t block_number, error_marker_t* marker);
+extern void __attribute__((section(".text"))) crc_fix2(uint32_t block_number, error_marker_t* marker);
+extern void __attribute__((section(".section3"))) crc_fix3(uint32_t block_number, error_marker_t* marker);
 
 /***** Test if block[block_number] overlaps flash_section[section_number] */
 
@@ -154,7 +152,7 @@ inline static void INLINE_ATTRIBUTE flash_copy_to_work(int flash_section, int co
 	FLASH_WAIT_FOR_READY;
 
 	while (src < src_limit && i < count) {
-    	*dest = (src == corrections[i]->pointer) ? corrections[i++]->corrected_dword : *src;
+    	*dest = (src == corrections[i]->pointer) ? corrections[i++]->corrected_word : *src;
 		src++;
 		dest++;
 		FLASH_WAIT_FOR_READY;
@@ -224,7 +222,7 @@ inline static void INLINE_ATTRIBUTE fix_block(uint32_t block_number, crc_fix_t c
 	int i, swaps;
 	uint32_t flash_section;
 
-	decode_rs((symbol_t*)BLOCK_START(block_number), &correction_count, corrections);
+	decode_rs(block_number, &correction_count, corrections);
 	if (correction_count == 0)
 	{ /* CRC must be messed up */
 		(*crc_fix)(block_number, corrections);

@@ -36,10 +36,11 @@
   */
 
 #include <stm32f4xx.h>
+#include <math.h>
 #include <stm32f4xx_rcc.h>
 #include <stm32f4xx_gpio.h>
-#include <stm32f4xx_usart.h>
-#include <stdio.h>
+#include "uart.h"
+#include <dprint.h>
 
 #define UART_BAUD 115200
 #define CR1_CLEAR_MASK            ((uint16_t)(USART_CR1_M | USART_CR1_PCE | \
@@ -50,193 +51,182 @@
 
 #define CR3_CLEAR_MASK            ((uint16_t)(USART_CR3_RTSE | USART_CR3_CTSE))
 
-static __I uint8_t APBAHBPrescTable[16] = {0, 0, 0, 0, 1, 2, 3, 4, 1, 2, 3, 4, 6, 7, 8, 9};
+static const uint8_t APBAHBPrescTable[16] = {0, 0, 0, 0, 1, 2, 3, 4, 1, 2, 3, 4, 6, 7, 8, 9};
 
 /************************************************************
  * Configure USART6(PC6, PC7)
  */
 void __attribute__((no_instrument_function)) uart_init(void) {
-  uint32_t tmpreg = 0x00, apbclock = 0x00;
-  uint32_t tmp, presc, pllvco, pllp;
-  uint32_t SYSCLK_Frequency, HCLK_Frequency;
-  uint32_t integerdivider = 0x00;
-  uint32_t fractionaldivider = 0x00;
+    uint32_t tmpreg = 0x00, apbclock = 0x00;
+    uint32_t tmp, presc, pllvco, pllp;
+    uint32_t SYSCLK_Frequency, HCLK_Frequency;
+    uint32_t integerdivider;
+    uint32_t fractionaldivider;
+    float numerator;
+    float denominator;
+    float midfreq;
 
-  /* Enable GPIO clock */
-  RCC->AHB1ENR |= RCC_AHB1Periph_GPIOC;
+
+    /* Enable GPIO clock */
+    RCC->AHB1ENR |= RCC_AHB1Periph_GPIOC;
 
     /* Enable UART clock */
-  RCC->APB2ENR |= RCC_APB2Periph_USART6;
+    RCC->APB2ENR |= RCC_APB2Periph_USART6;
 
-   /* Connect PXx to USART6_Tx*/
-  tmp = ((uint32_t)((uint32_t)GPIO_PinSource6 & (uint32_t)0x07) * 4);
-  GPIOC->AFR[GPIO_PinSource6 >> 0x03] &= ~((uint32_t)0xF << tmp);
-  GPIOC->AFR[GPIO_PinSource6 >> 0x03] |= ((uint32_t)(GPIO_AF_USART6) <<  tmp);
+    /* Connect PXx to USART6_Tx*/
+    tmp = ((uint32_t)((uint32_t)GPIO_PinSource6 & (uint32_t)0x07) * 4);
+    GPIOC->AFR[GPIO_PinSource6 >> 0x03] &= ~((uint32_t)0xF << tmp);
+    GPIOC->AFR[GPIO_PinSource6 >> 0x03] |= ((uint32_t)(GPIO_AF_USART6) <<  tmp);
 
-  /* Connect PXx to USART6_Rx*/
-  tmp = ((uint32_t)((uint32_t)GPIO_PinSource7 & (uint32_t)0x07) * 4);
-  GPIOC->AFR[GPIO_PinSource7 >> 0x03] &= ~((uint32_t)0xF << tmp);
-  GPIOC->AFR[GPIO_PinSource7 >> 0x03] |= ((uint32_t)(GPIO_AF_USART6) <<  tmp);
+    /* Connect PXx to USART6_Rx*/
+    tmp = ((uint32_t)((uint32_t)GPIO_PinSource7 & (uint32_t)0x07) * 4);
+    GPIOC->AFR[GPIO_PinSource7 >> 0x03] &= ~((uint32_t)0xF << tmp);
+    GPIOC->AFR[GPIO_PinSource7 >> 0x03] |= ((uint32_t)(GPIO_AF_USART6) <<  tmp);
 
-  /* Configure USART Tx as alternate function  */
+    /* Configure USART Tx as alternate function  */
 
-	/* Pin mode configuration */
-	GPIOC->MODER  &= ~(GPIO_MODER_MODER0 << 12);
-	GPIOC->MODER |= (((uint32_t)GPIO_Mode_AF) << 12);
-	/* Speed mode configuration */
-	GPIOC->OSPEEDR &= ~(GPIO_OSPEEDER_OSPEEDR0 << 12);
-	GPIOC->OSPEEDR |= ((uint32_t)(GPIO_Speed_50MHz) << 12);
+    /* Pin mode configuration */
+    GPIOC->MODER  &= ~(GPIO_MODER_MODER0 << 12);
+    GPIOC->MODER |= (((uint32_t)GPIO_Mode_AF) << 12);
+    /* Speed mode configuration */
+    GPIOC->OSPEEDR &= ~(GPIO_OSPEEDER_OSPEEDR0 << 12);
+    GPIOC->OSPEEDR |= ((uint32_t)(GPIO_Speed_50MHz) << 12);
 
-	/* Output mode configuration*/
-	GPIOC->OTYPER  &= ~((GPIO_OTYPER_OT_0) << (uint16_t)6) ;
-	GPIOC->OTYPER |= (uint16_t)(((uint16_t)GPIO_OType_PP) << (uint16_t)6);
+    /* Output mode configuration*/
+    GPIOC->OTYPER  &= ~((GPIO_OTYPER_OT_0) << (uint16_t)6) ;
+    GPIOC->OTYPER |= (uint16_t)(((uint16_t)GPIO_OType_PP) << (uint16_t)6);
 
-  /* Configure USART Rx as alternate function  */
+    /* Configure USART Rx as alternate function  */
 
-	/* Pin mode configuration */
-	GPIOC->MODER  &= ~(GPIO_MODER_MODER0 << 14);
-	GPIOC->MODER |= (((uint32_t)GPIO_Mode_AF) << 14);
+    /* Pin mode configuration */
+    GPIOC->MODER  &= ~(GPIO_MODER_MODER0 << 14);
+    GPIOC->MODER |= (((uint32_t)GPIO_Mode_AF) << 14);
 
-	/* Pull-up Pull down resistor configuration*/
-	GPIOC->PUPDR &= ~(GPIO_PUPDR_PUPDR0 << (uint16_t)14);
-	GPIOC->PUPDR |= (((uint32_t)GPIO_PuPd_UP) << 14);
+    /* Pull-up Pull down resistor configuration*/
+    GPIOC->PUPDR &= ~(GPIO_PUPDR_PUPDR0 << (uint16_t)14);
+    GPIOC->PUPDR |= (((uint32_t)GPIO_PuPd_UP) << 14);
 
-	/* USART configuration */
+    /* USART configuration */
 
-	/* usart enable */
-	USART6->CR1 |= USART_CR1_UE;
+    /* usart enable */
+    USART6->CR1 |= USART_CR1_UE;
 
-/*---------------------------- USART CR2 Configuration -----------------------*/
-  tmpreg = USART6->CR2;
+    /*---------------------------- USART CR2 Configuration -----------------------*/
+    tmpreg = USART6->CR2;
 
-  /* Clear STOP[13:12] bits */
-  tmpreg &= (uint32_t)~((uint32_t)USART_CR2_STOP);
+    /* Clear STOP[13:12] bits */
+    tmpreg &= (uint32_t)~((uint32_t)USART_CR2_STOP);
 
-  /* Configure the USART Stop Bits, Clock, CPOL, CPHA and LastBit :
-      Set STOP[13:12] bits according to USART_StopBits value */
-  tmpreg |= (uint32_t)USART_StopBits_1;
+    /* Configure the USART Stop Bits, Clock, CPOL, CPHA and LastBit :
+        Set STOP[13:12] bits according to USART_StopBits value */
+    tmpreg |= (uint32_t)USART_StopBits_1;
 
-  /* Write to USART CR2 */
-  USART6->CR2 = (uint16_t)tmpreg;
+    /* Write to USART CR2 */
+    USART6->CR2 = (uint16_t)tmpreg;
 
-/*---------------------------- USART CR1 Configuration -----------------------*/
-  tmpreg = USART6->CR1;
+    /*---------------------------- USART CR1 Configuration -----------------------*/
+    tmpreg = USART6->CR1;
 
-  /* Clear M, PCE, PS, TE and RE bits */
-  tmpreg &= (uint32_t)~((uint32_t)CR1_CLEAR_MASK);
+    /* Clear M, PCE, PS, TE and RE bits */
+    tmpreg &= (uint32_t)~((uint32_t)CR1_CLEAR_MASK);
 
-  /* Configure the USART Word Length, Parity and mode:
-     Set the M bits according to USART_WordLength value
-     Set PCE and PS bits according to USART_Parity value
-     Set TE and RE bits according to USART_Mode value */
-  tmpreg |= (uint32_t)(USART_WordLength_8b | USART_Parity_No | USART_Mode_Tx | USART_Mode_Rx);
+    /* Configure the USART Word Length, Parity and mode:
+        Set the M bits according to USART_WordLength value
+        Set PCE and PS bits according to USART_Parity value
+        Set TE and RE bits according to USART_Mode value */
+    tmpreg |= (uint32_t)(USART_WordLength_8b | USART_Parity_No | USART_Mode_Tx | USART_Mode_Rx);
 
-  /* Write to USART CR1 */
-  USART6->CR1 = (uint16_t)tmpreg;
+    /* Write to USART CR1 */
+    USART6->CR1 = (uint16_t)tmpreg;
 
-/*---------------------------- USART CR3 Configuration -----------------------*/
-  tmpreg = USART6->CR3;
+    /*---------------------------- USART CR3 Configuration -----------------------*/
+    tmpreg = USART6->CR3;
 
-  /* Clear CTSE and RTSE bits */
-  tmpreg &= (uint32_t)~((uint32_t)CR3_CLEAR_MASK);
+    /* Clear CTSE and RTSE bits */
+    tmpreg &= (uint32_t)~((uint32_t)CR3_CLEAR_MASK);
 
-  /* Configure the USART HFC :
-      Set CTSE and RTSE bits according to USART_HardwareFlowControl value */
-  tmpreg |= USART_HardwareFlowControl_None;
+    /* Configure the USART HFC :
+        Set CTSE and RTSE bits according to USART_HardwareFlowControl value */
+    tmpreg |= USART_HardwareFlowControl_None;
 
-  /* Write to USART CR3 */
-  USART6->CR3 = (uint16_t)tmpreg;
+    /* Write to USART CR3 */
+    USART6->CR3 = (uint16_t)tmpreg;
 
-/*---------------------------- USART BRR Configuration -----------------------*/
-  /* Configure the USART Baud Rate */
+    /*---------------------------- USART BRR Configuration -----------------------*/
+    /* Configure the USART Baud Rate */
 
-  /* Get SYSCLK source -------------------------------------------------------*/
-  tmp = RCC->CFGR & RCC_CFGR_SWS;
- switch (tmp)
-  {
-  case 0x00:  /* HSI used as system clock source */
-    SYSCLK_Frequency = HSI_VALUE;
-    break;
-  case 0x04:  /* HSE used as system clock  source */
-    SYSCLK_Frequency = HSE_VALUE;
-    break;
-  case 0x08:  /* PLL P used as system clock  source */
-
-    /* PLL_VCO = (HSE_VALUE or HSI_VALUE / PLLM) * PLLN
-    SYSCLK = PLL_VCO / PLLP
-    */
-    if (((RCC->PLLCFGR & RCC_PLLCFGR_PLLSRC) >> 22) != 0)
+    /* Get SYSCLK source -------------------------------------------------------*/
+    tmp = RCC->CFGR & RCC_CFGR_SWS;
+    switch (tmp)
     {
-      /* HSE used as PLL clock source */
-      pllvco = (HSE_VALUE / (RCC->PLLCFGR & RCC_PLLCFGR_PLLM)) * ((RCC->PLLCFGR & RCC_PLLCFGR_PLLN) >> 6);
+        case 0x00:  /* HSI used as system clock source */
+            SYSCLK_Frequency = HSI_VALUE;
+            break;
+
+        case 0x04:  /* HSE used as system clock  source */
+            SYSCLK_Frequency = HSE_VALUE;
+            break;
+
+        case 0x08:  /* PLL P used as system clock  source */
+
+            /* PLL_VCO = (HSE_VALUE or HSI_VALUE / PLLM) * PLLN
+            SYSCLK = PLL_VCO / PLLP
+            */
+            if (((RCC->PLLCFGR & RCC_PLLCFGR_PLLSRC) >> 22) != 0)
+            {
+                /* HSE used as PLL clock source */
+                pllvco = (HSE_VALUE / (RCC->PLLCFGR & RCC_PLLCFGR_PLLM)) * ((RCC->PLLCFGR & RCC_PLLCFGR_PLLN) >> 6);
+            }
+            else
+            {
+                /* HSI used as PLL clock source */
+                pllvco = (HSI_VALUE / (RCC->PLLCFGR & RCC_PLLCFGR_PLLM)) * ((RCC->PLLCFGR & RCC_PLLCFGR_PLLN) >> 6);
+            }
+
+            pllp = (((RCC->PLLCFGR & RCC_PLLCFGR_PLLP) >>16) + 1 ) * 2;
+            SYSCLK_Frequency = pllvco/pllp;
+            break;
+
+        default:
+            SYSCLK_Frequency = HSI_VALUE;
+            break;
     }
-    else
-    {
-      /* HSI used as PLL clock source */
-      pllvco = (HSI_VALUE / (RCC->PLLCFGR & RCC_PLLCFGR_PLLM)) * ((RCC->PLLCFGR & RCC_PLLCFGR_PLLN) >> 6);
+
+    /* Get HCLK prescaler */
+    uint32_t idx = (RCC->CFGR & RCC_CFGR_HPRE) >> 4;
+    presc = APBAHBPrescTable[idx];
+
+    /* HCLK clock frequency */
+    HCLK_Frequency = SYSCLK_Frequency >> presc;
+
+    /* Get PCLK2 prescaler */
+    idx = (RCC->CFGR & RCC_CFGR_PPRE2) >> 13;
+    presc = APBAHBPrescTable[idx];
+
+    /* PCLK2 clock frequency */
+    apbclock = HCLK_Frequency >> presc;
+
+    denominator = ((USART6->CR1 & USART_CR1_OVER8) != 0) ? 8.0f : 16.0f;
+    midfreq = (float)apbclock / (float)UART_BAUD / denominator;
+
+    /* Determine the integer part */
+    integerdivider = (uint32_t)midfreq;
+    midfreq -= (float)integerdivider;
+
+    numerator = floor(midfreq * denominator + 0.5f);
+    if (numerator >= denominator) {
+        integerdivider++;
+        numerator = 0.0f;
     }
+    fractionaldivider = (uint32_t)numerator;
 
-    pllp = (((RCC->PLLCFGR & RCC_PLLCFGR_PLLP) >>16) + 1 ) * 2;
-    SYSCLK_Frequency = pllvco/pllp;
-    break;
+    /* Write to USART BRR register */
+    USART6->BRR = (uint16_t)((integerdivider << 4) | fractionaldivider);
 
-  default:
-    SYSCLK_Frequency = HSI_VALUE;
-    break;
-  }
+    USART6->CR1 |= USART_CR1_TE; /* Send an idle frame */
 
-  /* Get HCLK prescaler */
-  presc = APBAHBPrescTable[(RCC->CFGR & RCC_CFGR_HPRE) >> 4];
-  /* HCLK clock frequency */
-  HCLK_Frequency = SYSCLK_Frequency >> presc;
-
-  /* Get PCLK2 prescaler */
-  presc = APBAHBPrescTable[(RCC->CFGR & RCC_CFGR_PPRE2) >> 13];
-  /* PCLK2 clock frequency */
-  apbclock = HCLK_Frequency >> presc;
-
-  /* Determine the integer part */
-  if ((USART6->CR1 & USART_CR1_OVER8) != 0)
-  {
-    /* Integer part computing in case Oversampling mode is 8 Samples */
-    integerdivider = ((25 * apbclock) / (2 * (UART_BAUD)));
-  }
-  else /* if ((USART6->CR1 & USART_CR1_OVER8) == 0) */
-  {
-    /* Integer part computing in case Oversampling mode is 16 Samples */
-    integerdivider = ((25 * apbclock) / (4 * (UART_BAUD)));
-  }
-  tmpreg = (integerdivider / 100) << 4;
-
-  /* Determine the fractional part */
-  fractionaldivider = integerdivider - (100 * (tmpreg >> 4));
-
-  /* Implement the fractional part in the register */
-  if ((USART6->CR1 & USART_CR1_OVER8) != 0)
-  {
-    tmpreg |= ((((fractionaldivider * 8) + 50) / 100)) & ((uint8_t)0x07);
-  }
-  else /* if ((USART6->CR1 & USART_CR1_OVER8) == 0) */
-  {
-    tmpreg |= ((((fractionaldivider * 16) + 50) / 100)) & ((uint8_t)0x0F);
-  }
-
-  /* Write to USART BRR register */
-  USART6->BRR = (uint16_t)tmpreg;
-
-  USART6->CR1 |= USART_CR1_TE; /* Send an idle frame */
-
-printf("\n\n\n****************************************\nStartup\n");
-printf("UART init complete\n");
-}
-
-void __attribute__((no_instrument_function)) uart_putc(char c) {
-	if ( c > 0) {
-		if (USART6->CR1 & USART_CR1_UE) {
-			while ((USART6->SR & USART_FLAG_TXE) == 0) {
-			}
-			USART6->DR = (uint16_t)(c);
-		}
-	}
+    dprint("start");
+    dprint("\n\n\n****************************************\nStartup\n");
+    dprint("UART init complete\n");
 }
 

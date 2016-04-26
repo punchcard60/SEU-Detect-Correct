@@ -15,33 +15,13 @@
  * limitations under the License.
  */
 
-#ifndef _UART_H
-#define _UART_H
+#ifndef _DPRINT_H
+#define _DPRINT_H
 
-#include <stm32f4xx_usart.h>
+#include <stdarg.h>
+#include <uart.h>
 
-#ifndef NULL
-#define NULL ((void*)0)
-#endif
+void dprint(const char *fmt, ...);
 
-extern void uart_init(void);
+#endif /* _DPRINT_H */
 
-inline static void __attribute__((always_inline)) uart_putc(char c) {
-	if ( c > 0) {
-		if (USART6->CR1 & USART_CR1_UE) {
-			while ((USART6->SR & USART_FLAG_TXE) == 0) {
-			}
-			USART6->DR = (uint16_t)(c);
-		}
-	}
-}
-
-inline static void __attribute__((always_inline)) uart_puts(char* str) {
-	if (str != NULL) {
-		while (*str) {
-			uart_putc(*str++);
-		}
-	}
-}
-
-#endif /* _UART_H */

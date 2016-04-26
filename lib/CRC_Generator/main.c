@@ -15,30 +15,31 @@
  * limitations under the License.
  */
 
-#include <stdio.h>
 #include <inttypes.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <time.h>
 #include "crcmodel.h"
-/* #include "crc_generator.h" */
 #include <reed_solomon.h>
 #include <encode_rs.h>
 
-typedef struct block {
-	uint16_t	reed_solomon_data[SYMBOL_TABLE_WORDS]; /*same as 3328 * sizeof(uint32_t) so the alignment works. */
-	uint32_t	crc;
-} block_t;
+
+uint32_t* 	RS_DATA;
+uint32_t* 	RS_PARITY;
+uint32_t 	BLOCK_COUNT;
+uint32_t*   CRCs;
 
 int main(int argc, char** argv) {
     // arguments:
     // argv[1] input file name
     // argv[2] offset to start of .text section
+    // argv[3] offset to start of .ecc_data section
     // argv[3] output file name
 
-    if (argc != 4) {
-        fprintf(stderr, "Usage: <input.elf> <.text-offset> <output.elf>\n");
+    if (argc != 5) {
+        fprintf(stderr, "Usage: <input.elf> <.text-offset> <.ecc-offset> <output.elf>\n");
         exit(1);
     }
 
@@ -49,8 +50,8 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    if ((outputFile = fopen(argv[3], "wb")) == NULL) {
-        printf("Error opening %s\n", argv[3]);
+    if ((outputFile = fopen(argv[4], "wb")) == NULL) {
+        printf("Error opening %s\n", argv[4]);
         return 1;
     }
 
@@ -65,29 +66,35 @@ int main(int argc, char** argv) {
     }
 
     uint32_t text_start_offs = strtol(argv[2], NULL, 16); /* The offset of the .text section in the executable
-														   * is passed into the CRCGenerator as argv[2]
+												* is passed into the CRCGenerator as argv[2]
+												*/
+
+    uint8_t* data_ptr = (uint8_t*)&inputData[text_start_offs]; //pointer to symbol defined in Linker Script
+
+
+    uint32_t ecc_start_offs = strtol(argv[3], NULL, 16); /* The offset of the .ecc_data section in the executable
+														   * is passed into the CRCGenerator as argv[3]
 														   */
-	/* The first 4 bytes in the text section give the relative offset of the beginning of the ISR vector table
-	 * which is located just before the .text section in the executable file.
-	 */
-	uint32_t block_start_offset = text_start_offs - *((uint32_t*)(((uint64_t)inputData) + text_start_offs));
 
-	/* The start of the first block should be at block_start_offset into the executable file.
-	 */
-    block_t* blocks = (block_t*)(((uint64_t)inputData) + block_start_offset);
+    uint32_t* ecc_ptr = (uint32_t*)&inputData[ecc_start_offs]; //pointer to symbol defined in Linker Script
 
-	/* the next four bytes after the relative offset of the beginning of the ISR vector table is the count of
-	 * blocks contained in this file.
-	 */
-    uint32_t blockCount = *((uint32_t*)(((uint64_t)inputData) + text_start_offs + 4)); //pointer to symbol defined in Linker Script
+    RS_DATA = (uint32_t*)data_ptr;
+    RS_PARITY = (uint32_t*)(&data_ptr[ecc_ptr[1] - ecc_ptr[0]]);
+    CRCs = (uint32_t*)(&data_ptr[ecc_ptr[2] - ecc_ptr[0]]);
+    BLOCK_COUNT = ecc_ptr[3];
 
-    int idx, numBytes;
-	numBytes = (sizeof(block_t) - sizeof(uint32_t));
-    for (idx = 0; idx < blockCount; idx++) {
-        encode_rs((word_t*) &blocks[idx]);
-        blocks[idx].crc = CRC_CalcBlockCRC((uint8_t*)&blocks[idx], numBytes);
-		printf("%d   %"PRIu32"\n", idx, blocks[idx].crc);
+    int idx;
+
+    for (idx = 0; idx < BLOCK_COUNT; idx++) {
+        encode_rs(idx);
 	}
+
+    for (idx = 0; idx < BLOCK_COUNT; idx++) {
+        CRCs[idx] = CRC_CalcBlockCRC((uint8_t*)&data_ptr[idx * SYMBOL_TABLE_WORDS], SYMBOL_TABLE_WORDS * sizeof(uint32_t));
+		printf("%d   %"PRIu32"\n", idx, CRCs[idx]);
+	}
+
+
 
     //Write modified binary to new file
     fwrite(inputData, sizeof(char), inputFileLen, outputFile);
